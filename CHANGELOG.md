@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.2 — 2026-10-16 — First-login quick tutorial
+
+- Added a concise four-screen Combat Workflow orientation for each player or GM on first login after enabling the module, following the native Foundry `ready` hook.
+- Includes lightning-bolt Token Actions, normal weapon attacks, separate grappling, chat turns/soak and GM health resolution; no dice or Actor changes from viewing the tutorial.
+- Final **Don't show again** saves `flags.stl-combat-workflow.tutorialDismissed` on the **current User**, not globally. Closing without dismissal does not set the flag.
+- A small `? Quick tutorial` footer inside the existing expanded Actions menu allows reopening the guide, even after it has been dismissed. No extra permanent icon or column.
+- Introduced `scripts/tutorial.js` and `styles/tutorial.css` as independent resources. No edits to the combat engine, Player Actions/Magick, DiceRoller or health mechanics.
+- Added Node mock coverage; live Foundry v14 user-flag saving and two-client rendering are still pending.
+
+
 ## v0.2.1 — 2026-10-16 — Separate Grapple UI and compact soak choice
 
 - Separated **Grapple** from the main Attack dialog. Grapple has its own HUD Actions flyout item and a minimal Strength + Brawl / Difficulty dialog; weapon/ammo/damage/split options remain exclusively in **Attack**.

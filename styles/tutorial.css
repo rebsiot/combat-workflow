@@ -1,0 +1,86 @@
+/* Compact per-user Combat Workflow orientation; never touches system sheets. */
+.stl-combat-tutorial {
+  color: #f4f5fa;
+  background: #252b34;
+  border: 1px solid #657386;
+  border-radius: 7px;
+  padding: 14px 16px;
+  line-height: 1.45;
+}
+.stl-combat-tutorial-progress {
+  color: #c5d0e1;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .03em;
+  margin-bottom: 5px;
+}
+.stl-combat-tutorial-title {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+  line-height: 1.3;
+  color: #fff;
+}
+.stl-combat-tutorial-body {
+  min-height: 116px;
+  font-size: 14px;
+  color: #f4f5fa;
+}
+.stl-combat-tutorial-body p {
+  margin: 0 0 10px;
+}
+.stl-combat-tutorial-body strong { color: #fff; }
+.stl-combat-tutorial-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.stl-combat-tutorial-controls button {
+  min-height: 34px;
+  margin: 0;
+  padding: 6px 13px;
+  border-radius: 5px;
+  border: 1px solid #8c9ab0;
+  background: #344256;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.stl-combat-tutorial-controls button:hover,
+.stl-combat-tutorial-controls button:focus-visible {
+  border-color: #eff3fc;
+  background: #526989;
+  outline: 2px solid #c9dcfc;
+  outline-offset: 1px;
+}
+.stl-combat-tutorial-controls button:disabled { opacity: .45; cursor: default; }
+.stl-combat-tutorial-controls button[hidden] { display: none !important; }
+.stl-combat-tutorial-controls [data-stl-tutorial-action="dismiss"] {
+  border-color: #b3c6ea;
+  background: #3d5985;
+}
+.stl-token-actions-menu .stl-token-actions-help {
+  display: block;
+  width: 100%;
+  min-height: 24px;
+  margin: 2px 0 0;
+  padding: 3px 5px;
+  border: 0;
+  border-top: 1px solid #68778c;
+  border-radius: 0;
+  background: transparent;
+  color: #d8e5f5 !important;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+}
+.stl-token-actions-menu .stl-token-actions-help:hover,
+.stl-token-actions-menu .stl-token-actions-help:focus-visible {
+  color: #fff !important;
+  text-decoration: underline;
+  outline: 2px solid #c7dcff;
+}

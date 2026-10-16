@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.2.1
+# STL Combat Workflow v0.2.2
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.1 gives Grapple a separate, minimal entry point and shortens the skip-soak button. The new paths are mock-tested; live Foundry validation remains pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.2 adds an optional, per-player first-login quick tutorial. The new tutorial is mock-tested; live Foundry verification remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.1/stl-combat-workflow-v0.2.1.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.2/stl-combat-workflow-v0.2.2.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -103,7 +103,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.2.1 to v0.2.0, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.2.0 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.2.2 to v0.2.1, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.2.1 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -251,3 +251,14 @@ The standard Attack → Defense → Damage → Soak → optional GM health appli
 5. Repeat an ordinary melee attack and the existing GM Apply/Undo sequence; verify no regression. Re-test a player-owned NPC and the two-player socket flow.
 
 **Evidence:** Source and native WoD20 firing mode fields inspected. Automated/mock tests cover mode arithmetic, ammo, split pools, grapple state transitions, HUD behavior and regressions. Nothing in v0.2.0 has been live-verified against the user's running Foundry v14 yet. **Upgrade:** Back up world and module, install v0.2.0, restart/refresh. **Rollback:** restore v0.1.10; previous gameplay health changes are not reverted by module rollback.
+
+
+## v0.2.2 — Per-user quick tutorial
+
+On the first login after this release is enabled, each user (GM or player) sees an optional **Combat Workflow — Quick Start** window after the world finishes loading. The tutorial contains four short screens: **Token Actions**, **Attack**, **Grapple**, and **Follow the chat**. Back/Next controls make it navigable without performing any rolls or affecting the world. Users can close the window without saving a preference, in which case it may appear on their next login.
+
+The final screen offers a clearly labeled **Don't show again** button. It saves only a flag on the current Foundry User document: `flags.stl-combat-workflow.tutorialDismissed`. That user will not see the automatic tutorial on later logins in this world, including on another device. No GM approval, change to other users, shared settings, Actor writes, or migration is involved. Users can still reopen the tutorial on demand from the small **? Quick tutorial** footer link inside the Token HUD lightning-bolt Actions flyout. It does not add another permanent HUD icon or another full-size action button. If saving the preference fails, the window warns and stays open so the user can try again.
+
+**Verification:** Automated mock test covers first-login behavior, four screens, Back/Next, final per-user dismissal and manually reopening it after dismissal. Live Foundry UI and player User-document flag permissions have not yet been confirmed. For a live smoke test, log in with a test player's account, use Don't show again on the final page, refresh/rejoin the world and verify the pop-up stays suppressed. Then right-click an owned token, open Actions, and use ? Quick tutorial to reopen it. Test from GM and player clients. No need to change the Player Actions/Magick module.
+
+**Upgrade:** Back up the world and existing `Z:\Data\modules\stl-combat-workflow` module, update to v0.2.2, restart or hard-refresh all clients. **Rollback:** restore v0.2.1. The preference is stored on the User document and persists across module rollback; it is harmless if an older release does not read it. Completed combat health changes are not undone by rollback.

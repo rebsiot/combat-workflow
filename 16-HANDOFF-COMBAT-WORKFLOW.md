@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.2.1 experimental field-test
+**Artifact:** `stl-combat-workflow` v0.2.2 experimental field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -147,3 +147,11 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Defender's **Cannot / Won't Soak** button relabeled **No Soak** (tooltip explains) without changing its underlying `no-soak` callback, rules, chat stages or permissions.
 - No existing chat flags, Actor health/Items, IDs, migrations, ammo maths or ownership changes. No adjacent modules edited.
 - Regression mocks amended for Attack/Grapple separation, correct token binding, full native modes, split attacks and compact soak button. Live Foundry GM+player smoke test pending. Rollback v0.2.0.
+
+
+## v0.2.2 — First-login user tutorial
+
+- Owning conversation: 16.1 Combat Workflow. User requested a quick tutorial shown on first login, with **Don't show again** on the final page.
+- Adds independent `scripts/tutorial.js` ES module and `styles/tutorial.css` to manifest. Does not touch attack, Grapple, Magick, chat cards, health or existing system APIs. First-login tutorial opens after `ready`, four brief screens (Token Actions, Attack, Grapple, Chat/Soak/GM Apply).
+- Each person's opt-out is their own native Foundry User flag `flags.stl-combat-workflow.tutorialDismissed=true`, persisted by `game.user.setFlag`. No global/user-admin setting or forced completion. Closing without pressing final **Don't show again** does not store the flag; auto-prompt repeats on subsequent logins until dismissed. On-demand replay via a small `? Quick tutorial` footer inside the *existing* lightning-bolt Actions menu, including after dismissal; no extra permanent HUD icon.
+- Node mock test covers lifecycle, four screens, per-user opt-out and replay/DOM dedupe. Requires live Foundry v14 check with non-GM User-document flag write permission, dialog appearance and HUD link layout. No world/Actor/Scene migrations, no adjacent-module changes. Backup module/world before updating; rollback v0.2.1. Keep User flag untouched if rolling back.
