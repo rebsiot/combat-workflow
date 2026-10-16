@@ -1,0 +1,30 @@
+name: Publish module ZIP release
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'releases/stl-combat-workflow-*.zip'
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish versioned release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./module.json').version")
+          tag="v${version}"
+          archive="releases/stl-combat-workflow-${tag}.zip"
+          test -f "$archive"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; no overwrite."
+            exit 0
+          fi
+          gh release create "$tag" "$archive" --target "$GITHUB_SHA" \
+            --title "STL Combat Workflow $tag" \
+            --notes-file CHANGELOG.md
