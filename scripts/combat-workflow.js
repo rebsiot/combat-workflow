@@ -1,7 +1,9 @@
-// STL Combat Workflow 0.1.0. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.1. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
+const DODGE_BUTTON = ".macroBtn.wod20-dodge-button";
+const SHEET_BUTTON = ".macroBtn.stl-combat-sheet-button";
 const VALID_DAMAGE = ["bashing", "lethal", "aggravated"];
 const STAGES = ["defense", "damage", "soak", "resolved", "applying", "done", "miss"];
 const inFlight = new Set();
@@ -287,12 +289,16 @@ async function promptFields(title, fields, confirmText = "Roll") {
     window:{title}, content, ok:{label:confirmText}, rejectClose:false, modal:true
   });
 }
-async function open() {
+async function open({attackerActor = null} = {}) {
   if (!DiceRoller) return notify("WoD20 dice functions unavailable.");
-  const selected = canvas.tokens.controlled;
-  if (selected.length !== 1) return notify("Select exactly one attacking token.");
-  const attacker = selected[0].actor;
+  // A sheet shortcut uses that sheet's Actor, even when no token is controlled.
+  // The Token Controls shortcut retains its explicit one-attacker-token behavior.
+  const selected = attackerActor ? [] : (canvas.tokens?.controlled ?? []);
+  if (!attackerActor && selected.length !== 1) return notify("Select exactly one attacking token.");
+  const attacker = attackerActor ?? selected[0]?.actor;
   if (!attacker || !mayUse(game.user.id, attacker)) return notify("You do not control this Actor.");
+  const attackerUuid = attackerActor?.uuid ?? selected[0]?.document?.uuid;
+  if (!attackerUuid) return notify("Cannot identify the attacking Actor.");
   const targets = [...game.user.targets];
   if (targets.length !== 1) return notify("Target exactly one defending token.");
   const target = targets[0];
@@ -329,7 +335,7 @@ async function open() {
   if (item?.type === "Ranged Weapon" && CONFIG.worldofdarkness?.defaultAutoAmmo && item.system?.clip) {
     await item.update({"system.clip.value":Math.max(0, safeInt(item.system.clip.value) - 1)});
   }
-  send({type:"start", nonce:foundry.utils.randomID(), attackerUuid:selected[0].document.uuid,
+  send({type:"start", nonce:foundry.utils.randomID(), attackerUuid,
     targetUuid:target.document.uuid, weaponId:item?.id || null, successes:success, damageOverride:choice.damageOverride});
 }
 async function clickAction(event) {
@@ -406,6 +412,62 @@ async function clickAction(event) {
     return send({type:"advance",messageId:msg.id,step:"undo"});
   }
 }
+// The WoD20 Dodge Button module inserts its shortcut synchronously during this
+// same render hook. Defer ours until all render hooks have run so our control is
+// immediately below Dodge regardless of module load order. Its presence is
+// optional: without Dodge, Combat sits immediately below native Roll.
+function sheetButtonColor(dodge, dice) {
+  const value = dodge?.querySelector?.("svg rect[fill]")?.getAttribute?.("fill")
+    ?? dice?.querySelector?.("svg path[fill]")?.getAttribute?.("fill")
+    ?? "";
+  return /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value) ? value : "#7d3f84";
+}
+function combatSheetIcon(color) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="30" height="30" aria-hidden="true" focusable="false" style="border-radius:3px;height:30px;width:30px">
+    <rect width="30" height="30" fill="${color}"/>
+    <g fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 4.5 23.5 8v7c0 5-3 8-8.5 10.5C9.5 23 6.5 20 6.5 15V8L15 4.5Z"/>
+      <path d="M11 18.7 19 10.7m-1.2-1.2 2.3 2.3m-10 7.1 1.7 1.7M14 15.7l2 2"/>
+    </g>
+  </svg>`;
+}
+function addSheetCombatButtons(app, root) {
+  if (game.system?.id !== "worldofdarkness" || app?.actor?.type !== "PC" || !root?.querySelectorAll) return 0;
+  let count = 0;
+  for (const dice of root.querySelectorAll('.macroBtn[data-rolldices="true"]')) {
+    const toolbar = dice.parentElement;
+    if (!toolbar || toolbar.querySelector?.(SHEET_BUTTON)) continue;
+    const dodge = toolbar.querySelector?.(DODGE_BUTTON);
+    const anchor = dodge ?? dice;
+    const color = sheetButtonColor(dodge, dice);
+    const btn = document.createElement("a");
+    btn.className = "macroBtn pointer stl-combat-sheet-button";
+    btn.setAttribute("role", "button");
+    btn.setAttribute("tabindex", "0");
+    btn.setAttribute("aria-label", "Combat Workflow");
+    btn.title = "Combat Workflow — Attack, Defense, Damage, Soak";
+    btn.innerHTML = combatSheetIcon(color);
+    const activate = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      void open({attackerActor:app.actor}).catch(error => {
+        console.error(`${MODULE} | Sheet shortcut failed`, error);
+        notify(`Combat workflow: ${error.message}`);
+      });
+    };
+    btn.addEventListener("click", activate);
+    btn.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") activate(event);
+    });
+    anchor.insertAdjacentElement("afterend", btn);
+    count++;
+  }
+  return count;
+}
+Hooks.on("renderActorSheetV2", (app, root) => {
+  queueMicrotask(() => addSheetCombatButtons(app, root));
+});
+
 Hooks.once("ready", async () => {
   if (game.system.id !== "worldofdarkness") return;
   try {

@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.0 standalone preview
+**Artifact:** `stl-combat-workflow` v0.1.1 standalone preview
 **Status:** Automated/mock-tested only, not confirmed live
 **Date:** 2026-10-15
 
@@ -38,3 +38,11 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - `GLOBAL-03`: Add two-user basic combat smoke test before release.
 - `GLOBAL-04`: Add module 16 to the development queue as preview/unverified until live testing.
 - Existing 05 Player Actions, 08/09 dice/Paradox and Combat Library ownership remains unchanged. Check integration when these module ZIPs are available.
+
+## v0.1.1 integration — sheet launcher under Dodge
+
+- Combat Workflow **owns** the injected `macroBtn.stl-combat-sheet-button` for PC `renderActorSheetV2`, directly after `macroBtn.wod20-dodge-button`; if the Dodge module is absent, insert after the native Roll button.
+- Uses a microtask after the synchronous render hooks to remain independent of the registration order of `wod20-dodge-button`; no modification to the existing Dodge module or its `src/main.js`.
+- The Combat sheet button launches `game.stlCombatWorkflow.open({attackerActor: app.actor})` internally. The Actor UUID is used for the attacker; canvas targeting of one defender is still required. The original Token Controls and no-argument `open()` entry points retain token-selection behavior.
+- Test status: syntax/JSON and Node mock tests only until verified on the user's live Foundry v14 PC sheet.
+- Cross-module handoff: the Dodge-button module remains separate and unchanged; document Combat shortcut's optional anchor CSS class as a read-only integration contract if its handoff is updated.

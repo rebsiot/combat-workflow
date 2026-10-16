@@ -1,3 +1,14 @@
+# Changelog
+
+## v0.1.1 — Character-sheet Combat shortcut
+
+- Added a native-sized **Combat Workflow** icon immediately **below Dodge** in WoD20 PC character sheets. If the separate Dodge module is unavailable, the shortcut appears immediately below the native Roll icon.
+- The new sheet shortcut uses the displayed PC as the attacker without requiring that token to be selected; still requires exactly one defending token to be targeted and a GM online.
+- Retained the existing Token Controls shortcut and single-attacker-token requirement for that entry point.
+- Button uses the existing sheet icon color, tooltip, accessible label, keyboard activation, and duplicate protection on rerenders.
+- No change to WoD20 native dice resolution, combat state, Actor data, or the independent Dodge module.
+- Automated mock tests only; a live Foundry v14 sheet and two-player workflow test is still outstanding.
+
 # Release notes
 
 ## v0.1.0 - 2026-10-15
