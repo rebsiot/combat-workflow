@@ -1,8 +1,8 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.1 standalone preview
-**Status:** Automated/mock-tested only, not confirmed live
+**Artifact:** `stl-combat-workflow` v0.1.2 standalone preview
+**Status:** User screenshot confirms card renders to defense stage on Foundry; automated tests pass; full 2-client and new contrast theme verification still pending
 **Date:** 2026-10-15
 
 ## Agreed intent
@@ -46,3 +46,11 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - The Combat sheet button launches `game.stlCombatWorkflow.open({attackerActor: app.actor})` internally. The Actor UUID is used for the attacker; canvas targeting of one defender is still required. The original Token Controls and no-argument `open()` entry points retain token-selection behavior.
 - Test status: syntax/JSON and Node mock tests only until verified on the user's live Foundry v14 PC sheet.
 - Cross-module handoff: the Dodge-button module remains separate and unchanged; document Combat shortcut's optional anchor CSS class as a read-only integration contract if its handoff is updated.
+
+## v0.1.2 CSS contrast correction
+
+- User live screenshot of v0.1.1 showed unreadably dark defender choices. Inspection showed the buttons were ordinary enabled HTML controls; the defect was inherited dark theme text, not disabled permissions.
+- `styles/combat-workflow.css` now explicitly sets scoped contrast for normal, hover/focus and disabled actions. This fixes defense, attack/damage, soak and final GM buttons without changing native WoD20 UI or JavaScript behavior.
+- Added `tests/test-chat-contrast.cjs` (static color ratio checks) to prevent regression. Other tests unchanged.
+- v0.1.1 remains the rollback target. v0.1.2 changes no Actors, flags, schemas, hook contracts, or other module data.
+- Need real live screenshot/check in user's dark Foundry theme after update; two-player workflow still unverified.

@@ -6,7 +6,37 @@
 .stl-combat-line { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:3px 0; }
 .stl-combat-help { margin:10px 0 7px; }
 .stl-combat-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-.stl-combat-actions button { width:auto; min-width:95px; min-height:30px; flex:1; }
+/* WoD20/Foundry can set button text to near-black even in a dark chat theme.
+   Scope the contrast correction to our chat cards, not system-wide buttons. */
+.stl-combat-card .stl-combat-actions button {
+  width: auto;
+  min-width: 95px;
+  min-height: 32px;
+  flex: 1;
+  padding: 5px 8px;
+  color: #f5f6f8 !important;
+  background: #363941 !important;
+  border: 1px solid #a4aab6 !important;
+  border-radius: 5px;
+  font-weight: 600;
+  text-shadow: none;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+.stl-combat-card .stl-combat-actions button:hover:not(:disabled),
+.stl-combat-card .stl-combat-actions button:focus-visible {
+  color: #ffffff !important;
+  background: #4b5464 !important;
+  border-color: #e5ebf6 !important;
+  box-shadow: 0 0 0 2px rgba(194, 210, 239, .45);
+}
+.stl-combat-card .stl-combat-actions button:disabled {
+  color: #b9bdc6 !important;
+  background: #30333a !important;
+  border-color: #666b75 !important;
+  opacity: 1 !important;
+  cursor: not-allowed;
+}
 .stl-combat-outcome { font-weight:bold; margin-top:12px; font-size:1.05em; }
 .stl-combat-prompt { display:grid; gap:12px; padding:8px 4px; }
 .stl-combat-prompt label { display:grid; gap:4px; }

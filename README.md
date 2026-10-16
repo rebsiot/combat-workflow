@@ -1,4 +1,4 @@
-# STL Combat Workflow v0.1.1
+# STL Combat Workflow v0.1.2
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
 **Status:** Published for personal-use field testing. Automated/mock-tested only; NOT yet verified in live Foundry.
@@ -27,7 +27,7 @@ Every roll is made using WoD20's own `DiceRollContainer` and `DiceRoller`, produ
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** [https://github.com/rebsiot/combat-workflow/raw/refs/heads/main/releases/stl-combat-workflow-v0.1.1.zip](https://raw.githubusercontent.com/rebsiot/combat-workflow/main/releases/stl-combat-workflow-v0.1.1.zip)
+**Download ZIP:** [https://github.com/rebsiot/combat-workflow/raw/refs/heads/main/releases/stl-combat-workflow-v0.1.2.zip](https://raw.githubusercontent.com/rebsiot/combat-workflow/main/releases/stl-combat-workflow-v0.1.2.zip)
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -64,6 +64,10 @@ await game.modules.get("stl-combat-workflow").api.open();
 - For V20 Vampire defenders, **remaining bashing damage is halved after soak, rounded down**. Ordinary firearm attacks using the `firearms` attack Ability default to bashing against Vampires; damage type can be overridden for headshots, ammunition or special cases.
 - Difficulty, damage dice and soak dice can be changed by the rolling player. This is a trusted-table tool, not a GM approval gate.
 
+## Combat chat action contrast
+
+As of v0.1.2, the Dodge / Block / Parry / No Defense chat buttons and later Damage, Soak and GM actions use module-scoped high-contrast text and backgrounds. Hover and keyboard focus are visibly outlined. This is strictly a UI styling fix, not an authorization or defense-rule change. If the chat card is already displayed after updating, reload the browser to apply the new stylesheet.
+
 ## Known limitations and decisions pending a real test
 
 - **Single target, single attack only.** Burst/full-auto, spray/multiple targets, split actions, rate of fire, reloading beyond single shots and ammo special cases are not implemented. The normal WoD20 sheet remains available for those cases.
@@ -91,9 +95,11 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.1 to v0.1.0, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.0 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 rolls and ChatMessages remain in the world; flags are not automatically migrated or deleted.
+To roll back v0.1.2 to v0.1.1, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.1 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 rolls and ChatMessages remain in the world; flags are not automatically migrated or deleted.
 
 ## Test summary
+
+- v0.1.2: CSS contrast checks PASS (default 10.68:1; hover/focus 7.63:1; disabled 6.72:1), all styles scoped to module chat card. User screenshot confirmed v0.1.1 card rendered in Foundry, but v0.1.2 contrast is not yet tested live.
 
 - v0.1.1 sheet shortcut insertion, Dodge-order fallback, deduplication, accessible controls, and Actor-context/no-token launch: PASS under Node mock; live sheet verification pending.
 - JavaScript parse check (`node --check`): PASS.

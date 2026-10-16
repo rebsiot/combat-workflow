@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.2 — 2026-10-15 — Readable combat chat actions
+
+- Fixed nearly-black text on Dodge, Block, Parry, and No Defense buttons in dark Foundry/WoD20 chat themes. The same explicit styles cover Damage, Soak, Apply and Undo actions.
+- Scoped high-contrast text, background and border colors to Combat Workflow chat cards only; native system buttons remain untouched.
+- Added clear hover/focus styling and distinct readable disabled-state styling. Buttons were not functionally disabled in v0.1.1; this was a contrast defect.
+- Kept the combat state machine, actor data, native dice, permissions, and both launcher icons unchanged. No migrations.
+- Automated: Node state/sheet mock checks and static contrast regression checks passed (active 10.68:1, focus 7.63:1, disabled 6.72:1). Live contrast verification on the user's Foundry theme is pending.
+
 ## v0.1.1 — Character-sheet Combat shortcut
 
 - Added a native-sized **Combat Workflow** icon immediately **below Dodge** in WoD20 PC character sheets. If the separate Dodge module is unavailable, the shortcut appears immediately below the native Roll icon.
