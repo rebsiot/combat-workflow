@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.8 standalone field-test
+**Artifact:** `stl-combat-workflow` v0.1.9 standalone field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -108,3 +108,12 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - User supplied v0.1.7 soak screenshot and requested bold text **ThugMelee (1) Roll** in the player-colored acting character box.
 - Append ` Roll` for defense, damage, soak phases. Keep the GM `Storyteller` phase label unchanged. No additional text or role headings. Existing speaker behavior, controls, and player coloring preserved.
 - Presentation-only inside Combat Workflow module. Regression tests updated; Foundry live check pending. Rollback v0.1.7. No changes to adjacent modules or cross-module contracts.
+
+
+## v0.1.9 — Replace sidebar shield with native Token HUD attack control
+
+- User requests removal of the always-visible left Token Controls shield; combat shortcut is more appropriate as a compact attack icon when right-clicking one's token.
+- The Combat Workflow module owns both its PC sheet control (unchanged below Dodge) and the new native Foundry v14 `renderTokenHUD` injection. Removed `getSceneControlButtons` injection completely.
+- Right-click HUD button uses WoD20 `assets/img/items/meleeweapons.svg`, inserted as a native `.control-icon` in `.col.right` directly following the native combat control (fallback to available HUD column), only when current user owns the Actor or is GM. Dedupe on re-renders.
+- `open({attackerToken})` accepts a Token/TokenDocument, resolves its linked/synthetic Actor and uses the TokenDocument UUID. No dependence on `canvas.tokens.controlled`; PC sheet `open({attackerActor})` and macro `open()` preserved.
+- No changed Actor or Scene data, combat state schema, dice/permissions contracts or adjacent modules. Foundry v14 TokenHUD markup integration is mock-tested only; confirm live right-click placement and correct token context. Rollback v0.1.8.

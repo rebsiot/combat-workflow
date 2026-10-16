@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.8
+# STL Combat Workflow v0.1.9
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The v0.1.8 name-and-Roll banner wording is mock-tested; live multiplayer verification remains pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The v0.1.9 Token HUD shortcut is mock-tested; live Foundry v14 HUD verification remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -14,7 +14,7 @@
 
 A guided **single-target, single-attack** M20/V20 combat flow using the WoD20 system's native dice rolls and native health track:
 
-1. Attacker opens the workflow from their PC sheet (or controls one attacking token using Token Controls), targets one enemy token, and selects an owned Melee/Ranged Weapon or Unarmed Strike.
+1. Attacker opens the workflow from their PC sheet or the right-click Token HUD, targets one enemy token, and selects an owned Melee/Ranged Weapon or Unarmed Strike.
 2. Attacker rolls native attack with weapon stats, difficulty and bonus dice; native system rules handle tens, ones, specialty settings and wound penalties.
 3. The Workflow card in chat asks defender to Dodge, Block, Parry or take the hit. It subtracts defensive successes from attack successes.
 4. If the attack hits, attacker rolls damage using the weapon's damage attribute/bonus and extra **net** attack successes beyond the first. A rules setting may turn off success-to-damage bonus.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.8/stl-combat-workflow-v0.1.8.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.9/stl-combat-workflow-v0.1.9.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -51,14 +51,15 @@ To install through Foundry Setup, use **Install Module → Manifest URL** and pa
 - **Target exactly one defender token** using Foundry's normal targeting control; an online GM is required. Clicking Combat opens the weapon/attack dialog and then the sequential Chat workflow.
 - The Dodge button itself remains the independent Dodge module's native single-defense roll; Combat does not replace it.
 
-- On the canvas, activate **Token** scene controls. The new **Combat Workflow** shield tool is added to that toolbar.
-- If the tool is not visible in your Foundry theme, create a personal *Script Macro* with:
+- **On the canvas:** Right-click the token you control to open its native **Token HUD**. Click the small crossed-swords **Attack — Combat Workflow** control alongside the HUD's combat controls. A target must already be selected. The HUD token becomes the attacker even if it is not currently selected.
+- **Removed:** The old shield icon is no longer inserted in the left Token Controls toolbar.
+- **Optional hotbar macro:** You can still create a Script Macro (requires exactly one selected attacker token) with:
 
 ```js
 await game.modules.get("stl-combat-workflow").api.open();
 ```
 
-- When launching from **Token Controls**, select **exactly one** attacking token you own/control and target exactly one defending token. When launching from the **sheet button**, that sheet Actor is the attacker and token selection is unnecessary.
+- The HUD shortcut is shown for a token whose Actor you own (or when logged in as GM). It uses the right-clicked TokenDocument, not whichever token is selected. The sheet button uses its Actor with no token-selection requirement. The optional macro uses a single selected attacking token.
 - An **online GM is required** to coordinate turns and perform health updates. One active GM serves as workflow authority; players still roll their own Actor dice by clicking the current Chat card button.
 - The correct Actor owner (or GM) clicks each step. Stage changes persist in the ChatMessage flags and can survive clients being reloaded.
 
@@ -84,13 +85,13 @@ As of v0.1.2, the Dodge / Block / Parry / No Defense chat buttons and later Dama
 - Specialty selection / Willpower spend, hit locations, cover, special damage conversions, soak-exception effects and additional defenses are not automated. Roll dialogs expose numeric overrides, but **the module will not adjudicate advanced rules for the GM**.
 - The PC sheet Combat shortcut uses the same 30×30 `macroBtn` style as the independent `wod20-dodge-button` module. It does not alter that module.
 - The native WoD20 system source was inspected at public version 7.3.1. Local exact installed system files, Player Actions, Dice Improvements, the Magick macro UI, Paradox and real Combat Library Items were **not provided**. A schema/API regression test using actual files is still required.
-- This release uses Foundry v14's `DialogV2.input`, `renderActorSheetV2`, and `getSceneControlButtons`, with native WoD20 7.3.1 roll and CombatHelper imports. The exposed APIs may change in newer system versions.
+- This release uses Foundry v14's `DialogV2.input`, `renderActorSheetV2`, and `renderTokenHUD`, with native WoD20 7.3.1 roll and CombatHelper imports. The exposed APIs may change in newer system versions.
 
 ## First live smoke test (do this in a copy/test world)
 
 1. Log in as GM and as a player in separate browser clients; confirm WoD20 version and enabled module.
 2. Place one Mage Actor and one target token, then give the Mage a native Melee Weapon Item.
-3. Target the defender, then click **Combat directly below Dodge** on the PC sheet, without selecting an attacker token. Repeat using the Token Controls shortcut with one attacker token selected.
+3. Target the defender, then click **Combat directly below Dodge** on the PC sheet, without selecting an attacker token. Repeat by right-clicking the attacking token and using the crossed-swords Token HUD icon (no selection required).
 4. Roll an attack and verify **both** a native dice ChatMessage and an interactive Workflow ChatMessage appear.
 5. On defender client choose Dodge and roll; check net successes, then attacker damage, then defender soak.
 6. As GM verify the final health preview, Apply, and Undo; confirm only the selected target Actor's wound counts changed.
@@ -102,7 +103,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.8 to v0.1.7, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.7 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.1.9 to v0.1.8, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.8 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -171,3 +172,13 @@ The chat card now displays **only the acting character's name** in a colored box
 ### Turn banner wording (v0.1.8)
 
 Active combat choices now display **`<Actor name> Roll`** (for example, **ThugMelee (1) Roll**) inside the player-color name box for defense, damage, and soak stages. The GM resolution box remains **Storyteller**, as health application is not a roll. The preceding v0.1.7 color and speaker behavior remains intact. This is presentation-only: no changes to permissions, dice, damage rules, or health data. Existing historical chat cards are not rewritten. Automated mock tests cover each banner state; live Foundry v14 verification is pending. Rollback release: v0.1.7.
+
+
+### Right-click Token HUD launcher (v0.1.9)
+
+- The extra shield tool in the left Token Controls palette is removed. Nothing is added to that sidebar.
+- Right-click an **owned token** (or any Actor token as GM). Foundry's native Token HUD shows a small crossed-swords button with tooltip **Attack — Combat Workflow**, normally directly after its combat-toggle control.
+- Click it after targeting **one defender**. The module passes the specific right-clicked TokenDocument UUID to the existing attacker workflow, independent of controlled-token selection. The normal PC sheet icon below Dodge and the optional no-argument macro remain available.
+- This uses Foundry v14 `renderTokenHUD`; it does not replace the TokenHUD class or modify WoD20 templates, other token controls, permissions, combat state, or dice. No Actor/Scene/Token data migrations or writes occur from simply showing the HUD.
+- **Live check:** In a test world, right-click a player-owned attacker; verify the small swords icon appears and the sidebar shield is absent. Target a defender while another token is selected, then click swords. Confirm the correct attacking character appears in the attack dialog. Verify a player does not get the button on an unowned token and a GM does.
+- **Upgrade:** Back up the module and world, update to v0.1.9, refresh/restart as necessary. **Rollback:** restore the v0.1.8 module ZIP. Existing Actors, items, scenes, tokens, and roll history are not migrated.

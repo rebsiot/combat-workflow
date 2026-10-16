@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.9 — 2026-10-16 — Right-click Token HUD attack shortcut
+
+- Removed the dedicated left Token Controls shield tool, decluttering the permanent scene toolbar.
+- Added a small crossed-swords Attack icon to the native Foundry v14 Token HUD displayed by right-clicking an owned token; GM can use it on NPCs too.
+- The HUD launcher uses the exact TokenDocument being right-clicked, not the selected token; the sheet launcher remains directly below Dodge and optional script macro remains available.
+- Native button sizing/placement, permissions and deduplication; no separate HUD class, combat mechanic or Actor/Scene migration.
+- Added Node mock coverage for HUD injection, deduplication, permissions and token-specific launch; live Foundry HUD verification pending.
+
+
 ## v0.1.8 — 2026-10-16 — Explicit Roll in combatant name box
 
 - Display `<Actor name> Roll` (e.g. `ThugMelee (1) Roll`) during defender choice/soak and attacker damage stages, keeping the player-colored box from v0.1.7.

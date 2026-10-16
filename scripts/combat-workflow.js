@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.8. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.9. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -466,15 +466,16 @@ async function promptFields(title, fields, confirmText = "Roll") {
     window:{title}, content, ok:{label:confirmText}, rejectClose:false, modal:true
   });
 }
-async function open({attackerActor = null} = {}) {
+async function open({attackerActor = null, attackerToken = null} = {}) {
   if (!DiceRoller) return notify("WoD20 dice functions unavailable.");
-  // A sheet shortcut uses that sheet's Actor, even when no token is controlled.
-  // The Token Controls shortcut retains its explicit one-attacker-token behavior.
-  const selected = attackerActor ? [] : (canvas.tokens?.controlled ?? []);
-  if (!attackerActor && selected.length !== 1) return notify("Select exactly one attacking token.");
-  const attacker = attackerActor ?? selected[0]?.actor;
+  // Sheet buttons supply an Actor; a token's right-click HUD supplies its
+  // TokenDocument. A bare open() still supports a single controlled token.
+  const tokenDoc = attackerToken?.document ?? attackerToken;
+  const selected = attackerActor || tokenDoc ? [] : (canvas.tokens?.controlled ?? []);
+  if (!attackerActor && !tokenDoc && selected.length !== 1) return notify("Select exactly one attacking token.");
+  const attacker = attackerActor ?? tokenDoc?.actor ?? selected[0]?.actor;
   if (!attacker || !mayUse(game.user.id, attacker)) return notify("You do not control this Actor.");
-  const attackerUuid = attackerActor?.uuid ?? selected[0]?.document?.uuid;
+  const attackerUuid = attackerActor?.uuid ?? tokenDoc?.uuid ?? selected[0]?.document?.uuid;
   if (!attackerUuid) return notify("Cannot identify the attacking Actor.");
   const targets = [...game.user.targets];
   if (targets.length !== 1) return notify("Target exactly one defending token.");
@@ -672,20 +673,37 @@ Hooks.once("ready", async () => {
   console.info(`${MODULE} | Native WoD20 attack -> defense -> damage -> soak workflow available via game.stlCombatWorkflow.open()`);
 });
 
-// Foundry v14's native Token scene-control toolbar is available to all users.
-Hooks.on("getSceneControlButtons", controls => {
-  const tokenTools = controls?.tokens?.tools;
-  if (!tokenTools || game.system?.id !== "worldofdarkness") return;
-  tokenTools.stlCombatWorkflow = {
-    name:"stlCombatWorkflow",
-    title:"Combat Workflow",
-    icon:"fa-solid fa-shield-halved",
-    order:Object.keys(tokenTools).length,
-    button:true,
-    visible:true,
-    onChange:() => void open().catch(e => {
-      console.error(`${MODULE} | Unable to open`,e);
-      notify(`Combat workflow: ${e.message}`);
-    })
-  };
+// Compact shortcut on the native v14 Token HUD (opened by right-click).
+// Foundry v14 passes an HTMLElement to renderTokenHUD and provides hud.document
+// as the associated TokenDocument. Never depend on selected/controlled tokens.
+function addTokenHudCombatButton(hud, root) {
+  if (game.system?.id !== "worldofdarkness" || !root?.querySelector) return false;
+  const tokenDoc = hud?.document ?? hud?.object?.document;
+  const actor = tokenDoc?.actor;
+  if (!tokenDoc?.uuid || !actor || !mayUse(game.user.id, actor)) return false;
+  if (root.querySelector(".stl-combat-hud-button")) return false;
+  const container = root.querySelector(".col.right") ?? root.querySelector(".col.left");
+  if (!container) return false;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "control-icon stl-combat-hud-button";
+  btn.title = "Attack — Combat Workflow";
+  btn.setAttribute("aria-label", "Attack — Combat Workflow");
+  btn.setAttribute("data-tooltip", "Attack — Combat Workflow");
+  btn.innerHTML = '<img src="/systems/worldofdarkness/assets/img/items/meleeweapons.svg" alt="" aria-hidden="true">';
+  btn.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    void open({attackerToken:tokenDoc}).catch(error => {
+      console.error(`${MODULE} | Token HUD shortcut failed`, error);
+      notify(`Combat workflow: ${error.message}`);
+    });
+  });
+  const nativeCombat = container.querySelector?.('button[data-action="combat"]');
+  if (nativeCombat?.insertAdjacentElement) nativeCombat.insertAdjacentElement("afterend", btn);
+  else container.appendChild(btn);
+  return true;
+}
+Hooks.on("renderTokenHUD", (hud, root) => {
+  addTokenHudCombatButton(hud, root?.querySelector ? root : hud?.element);
 });
