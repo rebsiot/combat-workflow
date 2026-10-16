@@ -51,7 +51,7 @@ const click=(root,action)=>root.listeners.click({
   hooks.get("ready")();
   assert.equal(timers.length,1,"first-login delayed until Foundry ready");
   timers.shift()();
-  await Promise.resolve();
+  await new Promise(setImmediate);
   assert.equal(instances.length,1);
   let dlg=instances.at(-1),root=dlg.root,query=q=>root.querySelector(q);
   assert.equal(query(".stl-combat-tutorial-title").textContent,"Start from your token");
@@ -70,7 +70,7 @@ const click=(root,action)=>root.listeners.click({
   assert.equal(flags.get("stl-combat-workflow.tutorialDismissed"),true);
   assert.equal(dlg.closed,true);
   hooks.get("ready")();timers.shift()();
-  await Promise.resolve();
+  await new Promise(setImmediate);
   assert.equal(instances.length,1,"dismissed users do not see tour on a later login");
   // The small replay link is part of the expanded flyout, not a new HUD column.
   const menu=createEl("div");
@@ -87,7 +87,7 @@ const click=(root,action)=>root.listeners.click({
   assert.equal(menu.children.length,1,"rerender must not duplicate help");
   let stopped=false;
   menu.children[0].listeners.click({preventDefault(){},stopPropagation(){stopped=true;}});
-  await Promise.resolve();
+  await new Promise(setImmediate);
   assert.equal(stopped,true);
   assert.equal(menu.hidden,true);
   assert.equal(actionButton.attributes["aria-expanded"],"false");
