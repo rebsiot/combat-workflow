@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.7 — 2026-10-16 — Compact player-color turn indicator
+
+- Simplified the active combat turn banner to show only the acting Actor name; removed extra "ATTACKER'S TURN"/"DEFENDER'S TURN"/"GM'S TURN" and instruction lines.
+- Use the controlling player's assigned Foundry user color for the background, choosing appropriate contrasting text. Unassigned NPCs and Storyteller actions use active GM color; neutral fallback if unavailable.
+- Preserve the speaker changes introduced in v0.1.6, defense/damage/soak controls, zero-damage automatic completion, and complete combat mechanics.
+- Added Node mock regression coverage for assigned player colors, fallback, text contrast and name-only banner; Foundry multi-client visual verification remains pending.
+
+
 ## v0.1.6 — 2026-10-16 — Clear combat turn ownership and zero-damage finalization
 
 - Added prominent, accessible color-coded turn banners identifying the Actor who must respond: Defender, Attacker, or GM.

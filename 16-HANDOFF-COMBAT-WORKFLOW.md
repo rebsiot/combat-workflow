@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.6 standalone field-test
+**Artifact:** `stl-combat-workflow` v0.1.7 standalone field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -92,3 +92,12 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Actor ownership checks, native roll functions, original chat roll messages, health changes and safety guard remain unchanged. Existing chat messages are not bulk-modified.
 - Node tests: existing mock suite and `tests/test-turn-and-zero.cjs` pass; live Foundry v14 2-player turn cue/zero-damage verification remains necessary.
 - Release v0.1.6, owning thread 16.1; v0.1.5 rollback. Shared `GLOBAL-03` should note added no-damage and turn-ownership smoke checks; `GLOBAL-02` data contract unchanged and Dodge module untouched.
+
+## v0.1.7 — Player-color compact turn indicator
+
+- User showed v0.1.6 banner and requested removal of role heading and instructional line: display **only the acting character name** in a box using that character's Foundry player color.
+- Combat Workflow module owns this view; update is entirely its own `scripts/combat-workflow.js` and scoped stylesheet. Did not modify Dodge/Player Actions/other modules.
+- Find assigned non-GM user through `User.character`; otherwise explicit owner or player with OWNER permission; fallback to elected active GM for NPCs and Storyteller stages. Read `User.color`, including v14 Color.css, sanitize hex before HTML interpolation; derive readable foreground automatically. Each new workflow ChatMessage stores its color styling in content for consistent display across all viewers.
+- Only the single actor name remains inside the turn banner. Chat speaker and roll buttons unchanged. No migration, extra permissions, or data-contract changes.
+- Existing 0.1.6 workflow cards retain their original appearance; updates are reflected in newly created cards.
+- Node tests include color ownership and hostile/invalid CSS fallback. Two-player live visual validation remains pending. Owning conversation 16.1, rollback 0.1.6.

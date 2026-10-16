@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.6. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.7. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -149,22 +149,45 @@ function resultBanner(state) {
   else detail = "Damage applied to health.";
   return `<div class="stl-combat-result stl-combat-result--${kind}" role="status"><strong>${esc(label)}</strong><span>${esc(detail)}</span></div>`;
 }
-// The acting Actor must stand out before players look for their roll buttons.
-function turnPrompt(state) {
-  const prompts = {
-    defense:{role:"DEFENDER'S TURN",name:state.targetName,action:"Choose Dodge, Block, Parry, or No Defense.",kind:"defender"},
-    damage:{role:"ATTACKER'S TURN",name:state.attackerName,action:"Roll damage for the successful attack.",kind:"attacker"},
-    soak:{role:"DEFENDER'S TURN",name:state.targetName,action:"Roll Soak or accept the damage.",kind:"defender"},
-    resolved:{role:"GM'S TURN",name:"Storyteller",action:"Review the damage and choose whether to apply it.",kind:"gm"}
-  };
-  const prompt = prompts[state.stage];
-  if (!prompt) return "";
-  if (state.stage === "resolved" && safeInt(state.finalDamage) <= 0) return "";
-  return `<div class="stl-combat-turn stl-combat-turn--${prompt.kind}" role="status"><span class="stl-combat-turn-role">${esc(prompt.role)}</span><strong class="stl-combat-turn-name">${esc(prompt.name)}</strong><span class="stl-combat-turn-action">${esc(prompt.action)}</span></div>`;
+// The acting character's name uses its controlling player's Foundry User color.
+// Only sanitized hex colors are accepted for inline CSS.
+function normalizedPlayerColor(value) {
+  let color = String(value?.css ?? value ?? "").trim();
+  if (/^#[0-9a-f]{3}$/i.test(color)) color = "#" + [...color.slice(1)].map(c => c + c).join("");
+  if (/^#[0-9a-f]{8}$/i.test(color)) color = color.slice(0, 7);
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : null;
 }
-function card(state) {
+function playerTurnStyle(user) {
+  const hex = normalizedPlayerColor(user?.color) ?? "#444c55";
+  const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const linear = rgb.map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4);
+  const luminance = .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+  const foreground = (1.05 / (luminance + .05)) >= ((luminance + .05) / .05) ? "#ffffff" : "#141414";
+  return `--stl-turn-color:${hex};--stl-turn-text:${foreground}`;
+}
+function actingUser(actor) {
+  const users = game.users?.filter?.(user => !user.isGM) ?? [];
+  // An explicitly assigned character is the strongest identity match.
+  const assigned = users.filter(user => actor && (
+    (user.character?.id && user.character.id === actor.id) ||
+    (user.character?.uuid && user.character.uuid === actor.uuid)
+  ));
+  const explicit = users.filter(user => actor && Number(actor.ownership?.[user.id]) >= 3);
+  const permitted = users.filter(user => actor?.testUserPermission?.(user, "OWNER"));
+  const candidates = assigned.length ? assigned : (explicit.length ? explicit : permitted);
+  return candidates.find(user => user.active) ?? candidates[0] ?? activeGM() ?? game.user;
+}
+function turnPrompt(state, user = null) {
+  const name = state.stage === "defense" || state.stage === "soak" ? state.targetName
+    : state.stage === "damage" ? state.attackerName
+    : state.stage === "resolved" && safeInt(state.finalDamage) > 0 ? "Storyteller"
+    : "";
+  if (!name) return "";
+  return `<div class="stl-combat-turn" role="status" style="${playerTurnStyle(user)}"><strong class="stl-combat-turn-name">${esc(name)}</strong></div>`;
+}
+function card(state, actingUser = null) {
   const header = `<div class="stl-combat-header"><strong>Combat Workflow</strong><small> ${esc(state.stage.toUpperCase())} </small></div>`;
-  let body = turnPrompt(state) + `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
+  let body = turnPrompt(state, actingUser) + `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
   body += line("Attack successes", state.attackSuccesses);
   if (state.defense) {
     body += line(`Defense (${state.defense.choice})`, state.defense.successes);
@@ -207,7 +230,8 @@ async function makeMessage(state) {
   if (state.stage === "defense" || state.stage === "soak") actor = await getActor(state.targetUuid);
   else if (state.stage === "damage") actor = await getActor(state.attackerUuid);
   const chatSpeaker = actor ? speaker(actor) : {alias:"Combat Workflow"};
-  return ChatMessage.create({speaker:chatSpeaker, content:card(state), flags:{[MODULE]:{combat:state}}});
+  const responsibleUser = actor ? actingUser(actor) : (activeGM() ?? game.user);
+  return ChatMessage.create({speaker:chatSpeaker, content:card(state, responsibleUser), flags:{[MODULE]:{combat:state}}});
 }
 async function updateMessage(msg, state) {
   if (!STAGES.includes(state.stage)) throw new Error("Invalid combat stage");

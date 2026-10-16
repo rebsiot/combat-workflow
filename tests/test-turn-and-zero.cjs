@@ -22,10 +22,9 @@ vm.runInContext(src,ctx);
 function call(code,fields={}){Object.assign(ctx,fields);return vm.runInContext(code,ctx);}
 const base={schema:1,attackerUuid:'a',targetUuid:'b',attackerName:'Marlowe',targetName:'ThugMelee (1)',weaponName:'Knife',
  damageType:'lethal',attackSuccesses:4,netSuccesses:2,stage:'defense',defense:null,damage:null,soak:null,finalDamage:null,note:''};
-assert.match(call('turnPrompt(st)',{st:base}),/DEFENDER&#39;S TURN/);
 assert.match(call('turnPrompt(st)',{st:base}),/ThugMelee \(1\)/);
-assert.match(call('turnPrompt(st)',{st:{...base,stage:'damage'}}),/ATTACKER&#39;S TURN/);
-assert.match(call('turnPrompt(st)',{st:{...base,stage:'resolved',finalDamage:2}}),/GM&#39;S TURN/);
+assert.match(call('turnPrompt(st)',{st:{...base,stage:'damage'}}),/Marlowe/);
+assert.match(call('turnPrompt(st)',{st:{...base,stage:'resolved',finalDamage:2}}),/Storyteller/);
 assert.equal(call('turnPrompt(st)',{st:{...base,stage:'done'}}),'');
 assert.match(css,/stl-combat-turn-name/);
 async function create(s){return call('makeMessage(st)',{st:s});}
@@ -54,7 +53,7 @@ async function advance(m,step,successes,choice){
  await advance(hit,'soak',1,'roll');
  last=[...messages.values()].at(-1);
  assert.equal(last.getFlag('stl-combat-workflow','combat').stage,'resolved');
- assert.match(last.content,/GM&#39;S TURN/);
+ assert.match(last.content,/Storyteller/);
  assert.match(last.content,/data-stl-combat-action="apply"/);
  const old=await create({...base,stage:'resolved',finalDamage:0});
  assert.doesNotMatch(old.content,/data-stl-combat-action="apply"/);

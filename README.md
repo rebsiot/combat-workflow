@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.6
+# STL Combat Workflow v0.1.7
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. New v0.1.6 UI and zero-damage behavior are automated/mock-tested only.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The name-only player-color banner in v0.1.7 is mock-tested; live multiplayer verification remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.6/stl-combat-workflow-v0.1.6.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.7/stl-combat-workflow-v0.1.7.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -102,7 +102,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.6 to v0.1.5, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.5 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.1.7 to v0.1.6, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.6 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -152,3 +152,17 @@ If the damage roll produces zero successes, or soak reduces the final damage to 
 **First live test:** Attack a defender for one damage success and roll two soak successes. Confirm the latest card shows NO DAMAGE / DONE with no GM buttons. Then launch another attack and confirm the first action card's speaker and highlighted role identify the **defender**, the damage card identifies the **attacker**, and a positive-damage result identifies the **GM**. Check both GM and player client displays.
 
 **Upgrade:** Back up the existing module folder (and ideally the test world), install v0.1.6 using Foundry's module update or its release ZIP, restart Foundry and hard-refresh the browser. **Rollback:** disable the module, stop Foundry and restore the v0.1.5 module folder/ZIP; combat actions that already modified health are not undone by rollback. The v0.1.6 release does not migrate Actors, existing chat messages or item records.
+
+### Compact player-color turn banner (v0.1.7)
+
+The chat card now displays **only the acting character's name** in a colored box; the redundant "DEFENDER'S TURN", "ATTACKER'S TURN", and helper sentence are removed. The rest of the card and its action buttons remain unchanged.
+
+- Background uses the Foundry **User color** of the player assigned to the Actor. If no assigned character is found, an explicit non-GM Actor owner is used, followed by a permitted non-GM owner.
+- For unassigned NPCs and Storyteller-only resolution, the active GM's User color is used. If no valid User color exists, a neutral dark gray is used.
+- Text automatically switches to light or dark contrast. The color is sanitized before being written to the chat HTML and will be consistent for all clients viewing that message.
+- The Foundry chat speaker still changes to the current actor (or Combat Workflow for completed/GM stages).
+- No ownership or permissions changes, no new settings, and no changes to rolls, wounds, stage transitions or Dice So Nice.
+
+**Live verification:** Assign different colors to two player users, have their characters attack and defend, and check that each new chat card shows just the responsible name with the correct color. Verify an unassigned NPC uses the GM fallback.
+
+**Upgrade:** Back up the module folder, install v0.1.7, restart Foundry and hard-refresh. Existing chat cards are historical and are not recolored in bulk. Roll back by restoring v0.1.6; actor data and completed roll history are untouched by this visual update.
