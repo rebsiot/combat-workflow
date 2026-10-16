@@ -8,5 +8,5 @@ assert.equal(manifest.compatibility.minimum,'14');
 assert.equal(manifest.compatibility.verified,'14');
 assert.equal(manifest.relationships.systems.find(x=>x.id==='worldofdarkness')?.compatibility.minimum,'7.3.1');
 assert.equal(manifest.manifest,'https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json');
-assert.equal(manifest.download,\`https://github.com/rebsiot/combat-workflow/releases/download/v\${manifest.version}/stl-combat-workflow-v\${manifest.version}.zip\`);
+assert.equal(manifest.download, "https://github.com/rebsiot/combat-workflow/releases/download/v"+manifest.version+"/stl-combat-workflow-v"+manifest.version+".zip");
 console.log('PASS: Foundry 14 core compatibility and versioned manifest/download URLs');
