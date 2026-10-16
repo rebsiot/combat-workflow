@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.4
+# STL Combat Workflow v0.1.5
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Published for personal-use field testing. Automated/mock-tested only; NOT yet verified in live Foundry.
+**Status:** Published for personal-use field testing. User has exercised the basic combat sequence in Foundry v14; multi-client and all advanced cases are not fully verified.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -9,6 +9,10 @@
 ## Personal-use disclaimer
 
 **Unofficial and provided as-is.** This is a personal St. Louis v2 campaign utility, not an official World of Darkness, Onyx Path, Paradox Interactive or Foundry VTT product. It is not supported by those organizations. No warranty, guaranteed compatibility, or technical support is offered. It can miscalculate combat or modify Actor health data; make backups and verify results against your game's rules. Publishing this repository does not mean the module passed live integration testing. User feedback and fixes are welcome, but this is not a managed public product.
+
+## Foundry compatibility metadata
+
+Foundry core `compatibility.minimum` and `compatibility.verified` are both `14`. This reflects the user's successful live use of core combat actions on Foundry v14 and ensures the module does not display an *unknown* core compatibility label. It is not a guarantee that every combat scenario, Dice So Nice version, or two-player permissions case has passed live testing. WoD20 minimum version remains `7.3.1`.
 
 ## Purpose
 
@@ -34,7 +38,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.4/stl-combat-workflow-v0.1.4.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.4/stl-combat-workflow-v0.1.5.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -102,7 +106,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.4 to v0.1.3, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.3 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.1.5 to v0.1.4, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.3 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 

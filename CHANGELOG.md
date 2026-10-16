@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.5 — 2026-10-16 — Foundry compatibility metadata
+
+- Set `compatibility.verified` to `14`, preserving minimum core version `14`, so Foundry v14 no longer reports an unspecified compatibility status solely because the manifest omitted verification metadata.
+- Live user testing confirms basic Combat Workflow operation in Foundry v14; complete two-client and advanced rule verification remain outstanding.
+- Versioned release/package URLs updated to v0.1.5. No runtime JavaScript, combat math, Actor state, sheets, chat cards or CSS changes.
+
+
 ## v0.1.4 — 2026-10-15 — Combat result banners, native swords and health Undo correction
 
 - Added clearly colored end-state banners: MISS, DODGED/BLOCKED/PARRIED, NO DAMAGE or final damage amount and type.

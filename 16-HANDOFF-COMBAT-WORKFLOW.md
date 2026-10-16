@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.4 standalone field-test
+**Artifact:** `stl-combat-workflow` v0.1.5 standalone field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -79,3 +79,9 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - New `nativeHealthFields(actor, damage)` mirrors WoD20's ordered `CONFIG.worldofdarkness.woundLevels` and `max(normal,chimerical)` logic. Apply writes updated damage object plus native derived total-health fields atomically; Undo writes restored counters and condition/penalty/remaining health in the same update. The previous guard against intervening wound-count changes remains. Chimerical counts are preserved.
 - Tests cover 0 damage cleared, 2 wounds to Hurt, 4+3 to Incapacitated followed by Undo to Wounded, correct wound penalties and remaining levels, and chimerical severity. No live Foundry test for this fix yet.
 - Important caveat: Existing inconsistent Actors from pre-v0.1.4 Undo require manual inspection; installing this version does not mass-edit Actors.
+## v0.1.5 — compatibility metadata
+
+- User reported Foundry showing compatibility unknown. v0.1.4 module manifest had `compatibility.minimum: "14"` but no `verified` field.
+- Set core `compatibility.verified: "14"` based on current user's live Foundry v14 testing, preserved min 14 and WoD20 system relationship minimum 7.3.1. No core `maximum` restriction.
+- Independent v0.1.5 release, no runtime edits or Actor changes. Re-test in Foundry Setup after module update; full two-client game testing remains outstanding.
+- Rollback to v0.1.4 if needed; v0.1.4 will again show compatibility unknown, but code behavior is identical.
