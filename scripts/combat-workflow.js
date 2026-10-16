@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.4. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.6. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -149,9 +149,22 @@ function resultBanner(state) {
   else detail = "Damage applied to health.";
   return `<div class="stl-combat-result stl-combat-result--${kind}" role="status"><strong>${esc(label)}</strong><span>${esc(detail)}</span></div>`;
 }
+// The acting Actor must stand out before players look for their roll buttons.
+function turnPrompt(state) {
+  const prompts = {
+    defense:{role:"DEFENDER'S TURN",name:state.targetName,action:"Choose Dodge, Block, Parry, or No Defense.",kind:"defender"},
+    damage:{role:"ATTACKER'S TURN",name:state.attackerName,action:"Roll damage for the successful attack.",kind:"attacker"},
+    soak:{role:"DEFENDER'S TURN",name:state.targetName,action:"Roll Soak or accept the damage.",kind:"defender"},
+    resolved:{role:"GM'S TURN",name:"Storyteller",action:"Review the damage and choose whether to apply it.",kind:"gm"}
+  };
+  const prompt = prompts[state.stage];
+  if (!prompt) return "";
+  if (state.stage === "resolved" && safeInt(state.finalDamage) <= 0) return "";
+  return `<div class="stl-combat-turn stl-combat-turn--${prompt.kind}" role="status"><span class="stl-combat-turn-role">${esc(prompt.role)}</span><strong class="stl-combat-turn-name">${esc(prompt.name)}</strong><span class="stl-combat-turn-action">${esc(prompt.action)}</span></div>`;
+}
 function card(state) {
   const header = `<div class="stl-combat-header"><strong>Combat Workflow</strong><small> ${esc(state.stage.toUpperCase())} </small></div>`;
-  let body = `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
+  let body = turnPrompt(state) + `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
   body += line("Attack successes", state.attackSuccesses);
   if (state.defense) {
     body += line(`Defense (${state.defense.choice})`, state.defense.successes);
@@ -161,23 +174,25 @@ function card(state) {
   if (state.soak) body += line(`Soak (${state.soak.choice})`, state.soak.successes);
   if (state.note && state.stage === "resolved") body += `<p class="stl-combat-help">${esc(state.note)}</p>`;
   if (state.stage === "defense") {
-    body += `<p class="stl-combat-help">Defender: choose your response.</p><div class="stl-combat-actions">`;
+    body += `<div class="stl-combat-actions">`;
     body += button("Dodge", "dodge") + button("Block", "block") + button("Parry", "parry") + button("No Defense", "none");
     body += `</div>`;
   }
   if (state.stage === "damage") {
-    body += `<p class="stl-combat-help">Attacker: roll damage for ${esc(state.netSuccesses)} net attack success(es).</p><div class="stl-combat-actions">`;
+    body += `<div class="stl-combat-actions">`;
     body += button("Roll Damage", "damage") + `</div>`;
   }
   if (state.stage === "soak") {
-    body += `<p class="stl-combat-help">Defender: roll applicable soak, or accept the damage without soaking.</p><div class="stl-combat-actions">`;
+    body += `<div class="stl-combat-actions">`;
     body += button("Roll Soak", "soak") + button("Cannot / Won't Soak", "no-soak") + `</div>`;
   }
   body += resultBanner(state);
   if (state.stage === "resolved" || state.stage === "applying" || state.stage === "done") {
-    if (state.stage === "resolved") {
-      body += `<p class="stl-combat-help">GM: review the target's current health before applying damage.</p><div class="stl-combat-actions">`;
+    if (state.stage === "resolved" && safeInt(state.finalDamage) > 0) {
+      body += `<div class="stl-combat-actions">`;
       body += button("Apply to Health", "apply") + button("Leave Unapplied", "skip") + `</div>`;
+    } else if (state.stage === "resolved") {
+      body += `<p>No damage to apply. Combat is complete.</p>`;
     } else if (state.stage === "applying") body += `<p>Application started. If interrupted, verify the Actor before retrying manually.</p>`;
     else {
       body += `<p>${esc(state.note || "Resolution recorded.")}</p>`;
@@ -187,8 +202,12 @@ function card(state) {
   return `<section class="stl-combat-card" data-stl-combat="true">${header}${body}</section>`;
 }
 async function makeMessage(state) {
-  const actor = await getActor(state.attackerUuid);
-  return ChatMessage.create({speaker:speaker(actor), content:card(state), flags:{[MODULE]:{combat:state}}});
+  // The message's chat header follows the actor who must act.
+  let actor = null;
+  if (state.stage === "defense" || state.stage === "soak") actor = await getActor(state.targetUuid);
+  else if (state.stage === "damage") actor = await getActor(state.attackerUuid);
+  const chatSpeaker = actor ? speaker(actor) : {alias:"Combat Workflow"};
+  return ChatMessage.create({speaker:chatSpeaker, content:card(state), flags:{[MODULE]:{combat:state}}});
 }
 async function updateMessage(msg, state) {
   if (!STAGES.includes(state.stage)) throw new Error("Invalid combat stage");
@@ -274,8 +293,12 @@ async function acceptAdvance(payload) {
   } else if (step === "damage" && s.stage === "damage" && isAttacker) {
     const successes = clamp(payload.successes, 0, 100);
     s.damage = {successes};
-    s.stage = successes > 0 ? "soak" : "resolved";
-    if (!successes) { s.soak = {choice:"not needed",successes:0}; s.finalDamage = 0; }
+    s.stage = successes > 0 ? "soak" : "done";
+    if (!successes) {
+      s.soak = {choice:"not needed",successes:0};
+      s.finalDamage = 0;
+      s.note = "No damage to apply.";
+    }
   } else if (step === "soak" && s.stage === "soak" && isDefender) {
     if (!["roll", "none"].includes(payload.choice)) throw new Error("Unknown soak choice");
     const successes = payload.choice === "none" ? 0 : clamp(payload.successes, 0, 100);
@@ -285,7 +308,8 @@ async function acceptAdvance(payload) {
       ? Math.floor(afterSoak / 2) : afterSoak;
     s.note = s.damageType === "bashing" && gameType(target).includes("vampire")
       ? "V20: bashing damage halved after soak (round down)." : "";
-    s.stage = "resolved";
+    s.stage = s.finalDamage > 0 ? "resolved" : "done";
+    if (s.finalDamage === 0) s.note = [s.note, "No damage to apply."].filter(Boolean).join(" ");
   } else if (step === "undo" && s.stage === "done" && isGM && s.undo) {
     const current = target.system.health.damage;
     for (const key of VALID_DAMAGE) {
@@ -309,16 +333,17 @@ async function acceptAdvance(payload) {
     s.undo = null;
   } else if (step === "skip" && s.stage === "resolved" && isGM) {
     s.stage = "done";
-    s.note = "Not applied to Actor health (GM choice).";
+    s.note = safeInt(s.finalDamage) > 0 ? "Not applied to Actor health (GM choice)." : "No damage to apply.";
   } else if (step === "apply" && s.stage === "resolved" && isGM) {
-    // Mark as applying BEFORE mutating health to prevent an accidental double application.
-    s.stage = "applying";
-    await updateMessage(msg, s);
-    if (s.finalDamage <= 0) {
+    // Legacy zero-damage chat cards must never produce an Actor update.
+    if (safeInt(s.finalDamage) <= 0) {
       s.stage = "done";
       s.note = "No damage to apply.";
       return await advanceMessage(msg, s);
     }
+    // Mark as applying BEFORE mutating health to prevent an accidental double application.
+    s.stage = "applying";
+    await updateMessage(msg, s);
     if (!target.system?.health?.damage || typeof CombatHelper?.ApplyDamageWithOverflow !== "function") {
       throw new Error("Health model unsupported: left at APPLYING for manual review");
     }

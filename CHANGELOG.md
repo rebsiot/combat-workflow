@@ -1,10 +1,17 @@
 # Changelog
 
+## v0.1.6 — 2026-10-16 — Clear combat turn ownership and zero-damage finalization
+
+- Added prominent, accessible color-coded turn banners identifying the Actor who must respond: Defender, Attacker, or GM.
+- Changed new workflow chat card speaker to the current defender/attacker, or a neutral Combat Workflow alias for GM/finished states, instead of retaining the original attacker name throughout.
+- Damage-roll failure, successful soak and Vampire bashing reduction that leave zero final damage now complete immediately with NO DAMAGE; no needless GM Apply/Leave choices or Actor health updates.
+- Historical zero-damage cards in resolved state now render without Apply/Leave buttons, and their prior Apply action can only finalize without mutating health. No bulk chat migration.
+- Preserved original WoD20 roll/chat history, Dice So Nice pacing, single active card, weapons, permissions, health Apply/Undo safety, sheet icon and module ID.
+- Added Node mock/regression coverage for actor names, stage-specific speakers, zero-damage transitions and guarding historical zero-damage Apply. Live two-client verification still pending.
+
 ## v0.1.5 — 2026-10-16 — Foundry compatibility metadata
 
-- Set `compatibility.verified` to `14`, preserving minimum core version `14`, so Foundry v14 no longer reports an unspecified compatibility status solely because the manifest omitted verification metadata.
-- Live user testing confirms basic Combat Workflow operation in Foundry v14; complete two-client and advanced rule verification remain outstanding.
-- Versioned release/package URLs updated to v0.1.5. No runtime JavaScript, combat math, Actor state, sheets, chat cards or CSS changes.
+- Set `compatibility.verified` to `14`, preserving minimum core version `14`; no runtime changes.
 
 
 ## v0.1.4 — 2026-10-15 — Combat result banners, native swords and health Undo correction

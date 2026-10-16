@@ -87,3 +87,37 @@
 .stl-combat-prompt { display:grid; gap:12px; padding:8px 4px; }
 .stl-combat-prompt label { display:grid; gap:4px; }
 .stl-combat-prompt input, .stl-combat-prompt select { min-height:28px; width:100%; }
+
+/* Prominent role/actor banner: much easier to identify the next player. */
+.stl-combat-card .stl-combat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 10px;
+  margin: 7px 0 12px;
+  border: 2px solid #93c6de;
+  border-radius: 7px;
+  color: #f4faff !important;
+  background: #29465a;
+  text-align: center;
+  text-shadow: none;
+}
+.stl-combat-card .stl-combat-turn--attacker { background: #443c56; border-color: #b6a0e2; }
+.stl-combat-card .stl-combat-turn--gm { background: #50452e; border-color: #e1c685; }
+.stl-combat-card .stl-combat-turn-role {
+  font-size: 1.05em;
+  font-weight: 850;
+  letter-spacing: .065em;
+  color: inherit !important;
+}
+.stl-combat-card .stl-combat-turn-name {
+  font-size: 1.22em;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  color: #ffffff !important;
+}
+.stl-combat-card .stl-combat-turn-action {
+  font-size: .92em;
+  color: inherit !important;
+}

@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.5
+# STL Combat Workflow v0.1.6
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Published for personal-use field testing. User has exercised the basic combat sequence in Foundry v14; multi-client and all advanced cases are not fully verified.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. New v0.1.6 UI and zero-damage behavior are automated/mock-tested only.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -9,10 +9,6 @@
 ## Personal-use disclaimer
 
 **Unofficial and provided as-is.** This is a personal St. Louis v2 campaign utility, not an official World of Darkness, Onyx Path, Paradox Interactive or Foundry VTT product. It is not supported by those organizations. No warranty, guaranteed compatibility, or technical support is offered. It can miscalculate combat or modify Actor health data; make backups and verify results against your game's rules. Publishing this repository does not mean the module passed live integration testing. User feedback and fixes are welcome, but this is not a managed public product.
-
-## Foundry compatibility metadata
-
-Foundry core `compatibility.minimum` and `compatibility.verified` are both `14`. This reflects the user's successful live use of core combat actions on Foundry v14 and ensures the module does not display an *unknown* core compatibility label. It is not a guarantee that every combat scenario, Dice So Nice version, or two-player permissions case has passed live testing. WoD20 minimum version remains `7.3.1`.
 
 ## Purpose
 
@@ -38,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.4/stl-combat-workflow-v0.1.5.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.6/stl-combat-workflow-v0.1.6.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -106,7 +102,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.5 to v0.1.4, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.3 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.1.6 to v0.1.5, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.5 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -140,3 +136,19 @@ Roll back to v0.1.3 by restoring its archived module directory after backing up 
 WoD20 persists the health condition (`system.health.damage.woundlevel`), the roll penalty (`system.health.damage.woundpenalty`), and the remaining health (`system.traits.health.totalhealthlevels`) separately from bashing/lethal/aggravated counts. v0.1.4 calculates these using the native ordered wound-level track and writes them in the **same Actor update** as the damage change. This affects both GM **Apply to Health** and **Undo Damage**. Undoing a strike that took a character from Wounded to Incapacitated should restore Wounded, including the corresponding wound penalty and remaining health. If the Actor has configured chimerical wounds, their separate track is preserved and the more severe state continues to display. Missing/invalid WoD20 health track blocks the change rather than guessing a condition.
 
 The GM Undo guard against intervening damage remains intact, and this patch does not retroactively repair stale health states from earlier module versions. Review any affected Actor manually. The **DAMAGE UNDONE** banner describes reversal of this workflow's damage, not healing from other sources.
+
+### Turn ownership and zero-damage auto-resolution (v0.1.6)
+
+Every actionable workflow card now opens with a large, high-contrast role banner:
+
+- **DEFENDER'S TURN — [target name]** for Dodge/Block/Parry/No Defense and Soak.
+- **ATTACKER'S TURN — [attacker name]** for Roll Damage.
+- **GM'S TURN — Storyteller** only when at least one health level remains to be applied.
+
+The Foundry chat message speaker also matches the actor expected to act on defense, damage or soak (rather than always displaying the attacker). GM and completed-result cards use the Combat Workflow speaker. These labels identify the acting **Actor** rather than guessing which human is seated at a computer; permissions continue to be enforced by the existing owner-or-GM validation. All buttons retain their original actions and permissions.
+
+If the damage roll produces zero successes, or soak reduces the final damage to zero, the workflow immediately shows **NO DAMAGE** and finishes. No Apply to Health or Leave Unapplied buttons are generated and the native Actor health remains untouched. Historic chat cards already saved under v0.1.5 are not rewritten; the zero-damage Apply path is nevertheless guarded when handled by v0.1.6. Missed attacks are unchanged.
+
+**First live test:** Attack a defender for one damage success and roll two soak successes. Confirm the latest card shows NO DAMAGE / DONE with no GM buttons. Then launch another attack and confirm the first action card's speaker and highlighted role identify the **defender**, the damage card identifies the **attacker**, and a positive-damage result identifies the **GM**. Check both GM and player client displays.
+
+**Upgrade:** Back up the existing module folder (and ideally the test world), install v0.1.6 using Foundry's module update or its release ZIP, restart Foundry and hard-refresh the browser. **Rollback:** disable the module, stop Foundry and restore the v0.1.5 module folder/ZIP; combat actions that already modified health are not undone by rollback. The v0.1.6 release does not migrate Actors, existing chat messages or item records.
