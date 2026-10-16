@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.7. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.8. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -183,7 +183,8 @@ function turnPrompt(state, user = null) {
     : state.stage === "resolved" && safeInt(state.finalDamage) > 0 ? "Storyteller"
     : "";
   if (!name) return "";
-  return `<div class="stl-combat-turn" role="status" style="${playerTurnStyle(user)}"><strong class="stl-combat-turn-name">${esc(name)}</strong></div>`;
+  const prompt = state.stage === "resolved" ? name : `${name} Roll`;
+  return `<div class="stl-combat-turn" role="status" style="${playerTurnStyle(user)}"><strong class="stl-combat-turn-name">${esc(prompt)}</strong></div>`;
 }
 function card(state, actingUser = null) {
   const header = `<div class="stl-combat-header"><strong>Combat Workflow</strong><small> ${esc(state.stage.toUpperCase())} </small></div>`;

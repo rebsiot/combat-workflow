@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.7
+# STL Combat Workflow v0.1.8
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The name-only player-color banner in v0.1.7 is mock-tested; live multiplayer verification remains pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The v0.1.8 name-and-Roll banner wording is mock-tested; live multiplayer verification remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.7/stl-combat-workflow-v0.1.7.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.8/stl-combat-workflow-v0.1.8.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -102,7 +102,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.7 to v0.1.6, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.6 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.1.8 to v0.1.7, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.7 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -166,3 +166,8 @@ The chat card now displays **only the acting character's name** in a colored box
 **Live verification:** Assign different colors to two player users, have their characters attack and defend, and check that each new chat card shows just the responsible name with the correct color. Verify an unassigned NPC uses the GM fallback.
 
 **Upgrade:** Back up the module folder, install v0.1.7, restart Foundry and hard-refresh. Existing chat cards are historical and are not recolored in bulk. Roll back by restoring v0.1.6; actor data and completed roll history are untouched by this visual update.
+
+
+### Turn banner wording (v0.1.8)
+
+Active combat choices now display **`<Actor name> Roll`** (for example, **ThugMelee (1) Roll**) inside the player-color name box for defense, damage, and soak stages. The GM resolution box remains **Storyteller**, as health application is not a roll. The preceding v0.1.7 color and speaker behavior remains intact. This is presentation-only: no changes to permissions, dice, damage rules, or health data. Existing historical chat cards are not rewritten. Automated mock tests cover each banner state; live Foundry v14 verification is pending. Rollback release: v0.1.7.

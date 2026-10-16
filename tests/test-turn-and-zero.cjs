@@ -22,9 +22,10 @@ vm.runInContext(src,ctx);
 function call(code,fields={}){Object.assign(ctx,fields);return vm.runInContext(code,ctx);}
 const base={schema:1,attackerUuid:'a',targetUuid:'b',attackerName:'Marlowe',targetName:'ThugMelee (1)',weaponName:'Knife',
  damageType:'lethal',attackSuccesses:4,netSuccesses:2,stage:'defense',defense:null,damage:null,soak:null,finalDamage:null,note:''};
-assert.match(call('turnPrompt(st)',{st:base}),/ThugMelee \(1\)/);
-assert.match(call('turnPrompt(st)',{st:{...base,stage:'damage'}}),/Marlowe/);
+assert.match(call('turnPrompt(st)',{st:base}),/ThugMelee \(1\) Roll/);
+assert.match(call('turnPrompt(st)',{st:{...base,stage:'damage'}}),/Marlowe Roll/);
 assert.match(call('turnPrompt(st)',{st:{...base,stage:'resolved',finalDamage:2}}),/Storyteller/);
+assert.doesNotMatch(call('turnPrompt(st)',{st:{...base,stage:'resolved',finalDamage:2}}),/Storyteller Roll/);
 assert.equal(call('turnPrompt(st)',{st:{...base,stage:'done'}}),'');
 assert.match(css,/stl-combat-turn-name/);
 async function create(s){return call('makeMessage(st)',{st:s});}

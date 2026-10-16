@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.8 — 2026-10-16 — Explicit Roll in combatant name box
+
+- Display `<Actor name> Roll` (e.g. `ThugMelee (1) Roll`) during defender choice/soak and attacker damage stages, keeping the player-colored box from v0.1.7.
+- Keep `Storyteller` for final GM health application; that step is not a dice roll.
+- No changes to stage sequence, native dice, chat speaker, damage/soak, health or other modules.
+- Update mock tests for the concise label wording; live Foundry UI verification pending.
+
+
 ## v0.1.7 — 2026-10-16 — Compact player-color turn indicator
 
 - Simplified the active combat turn banner to show only the acting Actor name; removed extra "ATTACKER'S TURN"/"DEFENDER'S TURN"/"GM'S TURN" and instruction lines.

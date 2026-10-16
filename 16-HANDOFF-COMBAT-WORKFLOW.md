@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.7 standalone field-test
+**Artifact:** `stl-combat-workflow` v0.1.8 standalone field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -101,3 +101,10 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Only the single actor name remains inside the turn banner. Chat speaker and roll buttons unchanged. No migration, extra permissions, or data-contract changes.
 - Existing 0.1.6 workflow cards retain their original appearance; updates are reflected in newly created cards.
 - Node tests include color ownership and hostile/invalid CSS fallback. Two-player live visual validation remains pending. Owning conversation 16.1, rollback 0.1.6.
+
+
+## v0.1.8 — Roll suffix on acting actor name
+
+- User supplied v0.1.7 soak screenshot and requested bold text **ThugMelee (1) Roll** in the player-colored acting character box.
+- Append ` Roll` for defense, damage, soak phases. Keep the GM `Storyteller` phase label unchanged. No additional text or role headings. Existing speaker behavior, controls, and player coloring preserved.
+- Presentation-only inside Combat Workflow module. Regression tests updated; Foundry live check pending. Rollback v0.1.7. No changes to adjacent modules or cross-module contracts.
