@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.3 — 2026-10-16 — Remove duplicate Grapple entry in Attack weapon list
+
+- WoD20 supplies Grapple as an owned Melee Weapon Item, which kept appearing in **Attack → Weapon** even after v0.2.1 introduced the separate Grapple launcher. The Attack dropdown now excludes exactly that native item by trimmed case-insensitive name and type; the Item remains in the Actor's Items and native WoD20 sheet.
+- Preserve Bite, Disarm, Kick, Punch, Sweep, other equipment, firing modes, and the native Unarmed Strike option. Reject forged/stale Grapple Item picks in Attack; direct users to **Actions → Grapple**.
+- No change to the dedicated Grapple workflow, combat mechanics, health, flags, User tutorial state or other modules. Added a dropdown and item-preservation regression mock; live Foundry UI check pending.
+
+
 ## v0.2.2 — 2026-10-16 — First-login quick tutorial
 
 - Added a concise four-screen Combat Workflow orientation for each player or GM on first login after enabling the module, following the native Foundry `ready` hook.

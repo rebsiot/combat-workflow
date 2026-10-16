@@ -8,10 +8,13 @@ const gun={id:'gun',type:'Ranged Weapon',name:'SMG',system:{
  damage:{attribute:'noselected',bonus:5,type:'lethal'},
  difficulty:6,mode:{hasburst:true,hasfullauto:true},clip:{value:12,max:12}
 },async update(change){this.system.clip.value=change['system.clip.value'];}};
+const meleeManeuvers=["Bite","Disarm","Grapple","Kick","Punch","Sweep"].map((name,i)=>({
+  id:"melee"+i,type:"Melee Weapon",name,system:{attack:{attribute:"dexterity",ability:"brawl"},damage:{attribute:"strength",type:"bashing"}}
+}));
 const actor={id:'a',uuid:'Actor.a',documentName:'Actor',name:'Attacker',type:'PC',
  system:{attributes:{strength:{total:4},dexterity:{total:3}},health:{damage:{woundpenalty:0}},settings:{splat:'mortal'}},
  api:{getAbility:key=>({system:{value:key==='firearms'?3:2}})},
- items:{get:id=>id==='gun'?gun:null,find:()=>null,filter:fn=>[gun].filter(fn)},testUserPermission:()=>true};
+ items:{get:id=>[gun,...meleeManeuvers].find(item=>item.id===id)||null,find:()=>null,filter:fn=>[gun,...meleeManeuvers].filter(fn)},testUserPermission:()=>true};
 const target={id:'t',uuid:'Actor.t',documentName:'Actor',name:'Defender',type:'PC',
  system:{attributes:{strength:{total:3},dexterity:{total:3}},health:{damage:{woundpenalty:0}},settings:{splat:'mortal'}},
  api:{getAbility:()=>({system:{value:2}})},items:{get:()=>null,find:()=>null,filter:()=>[]},testUserPermission:()=>true};
@@ -64,11 +67,29 @@ const last=()=>[...messages.values()].at(-1);
   assert.match(soakCard,/>No Soak<\/button>/);
   assert.match(soakCard,/title="Cannot or choose not to soak"/);
   assert.doesNotMatch(soakCard,/Cannot \/ Won/);
+  const weaponNames=Array.from(run('attackWeaponList(actor)',{actor})).map(item=>item.name);
+  assert.ok(weaponNames.includes("SMG"));
+  assert.ok(!weaponNames.includes("Grapple"),"Grapple is a standalone maneuver, not a weapon option");
+  for (const name of ["Bite","Disarm","Kick","Punch","Sweep"]) {
+    assert.ok(weaponNames.includes(name),name+" must remain available in normal attacks");
+  }
+  assert.ok(Array.from(run('weaponList(actor)',{actor})).some(item=>item.name==="Grapple"),
+    "Keep the native Grapple Item intact for WoD20 and existing chat cards");
+  assert.equal(run('isGrappleManeuver({type:"Melee Weapon",name:"  GRAPPLE  "})'),true);
+  assert.equal(run('isGrappleManeuver({type:"Ranged Weapon",name:"Grapple"})'),false);
   const openChoice={weapon:'gun',difficulty:'0',modifier:'0',damageOverride:'',attacks:'1',fireMode:'burst'};
   choice=openChoice;
   await run('open({attackerActor:actor})',{actor});
   assert.equal(rolls.at(-1).pool,9);
-  assert.doesNotMatch(prompts.at(-1).content,/name="maneuver"|Grapple \/ Hold/,'Standard attack must not expose grapple');
+  assert.doesNotMatch(prompts.at(-1).content,/name="maneuver"|Grapple/,'Standard attack must not expose grapple at all');
+  for(const name of ["Bite","Disarm","Kick","Punch","Sweep"]) assert.match(prompts.at(-1).content,new RegExp(">"+name+"<"));
+  assert.match(prompts.at(-1).content,/>Unarmed Strike<\/option>/);
+  const rollsBeforeGrappleWeapon=rolls.length;
+  choice={...openChoice,weapon:meleeManeuvers.find(i=>i.name==="Grapple").id};
+  await run('open({attackerActor:actor})',{actor});
+  assert.equal(rolls.length,rollsBeforeGrappleWeapon,"hidden native Grapple item cannot be forced into Attack");
+  assert.match(warning.at(-1),/Actions.*Grapple/);
+  choice=openChoice;
   assert.equal(rolls.at(-1).difficulty,7);
   assert.equal(gun.system.clip.value,9);
   assert.equal(emitted.at(-1).firingMode,'burst');

@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.2.1. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.2.3. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -50,6 +50,15 @@ function attributeValue(actor, key) {
 }
 function weaponList(actor) {
   return actor.items.filter(i => i.type === "Melee Weapon" || i.type === "Ranged Weapon");
+}
+// WoD20 includes Grapple as a native Melee Weapon Item. Keep the Actor's Item
+// intact for native sheets and older workflow cards, but present it only through
+// the dedicated Actions -> Grapple workflow, not the Attack weapon selector.
+function isGrappleManeuver(item) {
+  return item?.type === "Melee Weapon" && String(item.name ?? "").trim().toLowerCase() === "grapple";
+}
+function attackWeaponList(actor) {
+  return weaponList(actor).filter(item => !isGrappleManeuver(item));
 }
 function woundPenalty(actor, origin) {
   if (actor.system?.conditions?.isignoringpain || actor.system?.conditions?.isfrenzy) return 0;
@@ -631,7 +640,7 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   const context = attackContext({attackerActor, attackerToken});
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
-  const weapons = weaponList(attacker);
+  const weapons = attackWeaponList(attacker);
   const fields = [
     {name:"weapon",label:"Weapon",type:"select",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
     {name:"difficulty",label:"Attack difficulty (0 = native default)",value:0,min:0,max:10},
@@ -649,6 +658,7 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   if (!choice) return;
   const item = choice.weapon ? attacker.items.get(choice.weapon) : null;
   if (choice.weapon && !item) return notify("Weapon no longer exists.");
+  if (isGrappleManeuver(item)) return notify("Use Actions → Grapple for this maneuver.");
   const count=clamp(choice.attacks||1,1,4);
   const mode=choice.fireMode||"single";
   if (count>1 && mode!=="single") return notify("Burst/full-auto and split multiple actions cannot be combined here.");

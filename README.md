@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.2.2
+# STL Combat Workflow v0.2.3
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.2 adds an optional, per-player first-login quick tutorial. The new tutorial is mock-tested; live Foundry verification remains pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.3 removes the native Grapple maneuver Item from the Attack weapon selector only. The quick tutorial and dedicated Grapple flow remain unchanged. The filter is mock-tested; live Foundry verification remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.2/stl-combat-workflow-v0.2.2.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.3/stl-combat-workflow-v0.2.3.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -103,7 +103,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.2.2 to v0.2.1, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.2.1 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.2.3 to v0.2.2, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.2.2 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -262,3 +262,12 @@ The final screen offers a clearly labeled **Don't show again** button. It saves 
 **Verification:** Automated mock test covers first-login behavior, four screens, Back/Next, final per-user dismissal and manually reopening it after dismissal. Live Foundry UI and player User-document flag permissions have not yet been confirmed. For a live smoke test, log in with a test player's account, use Don't show again on the final page, refresh/rejoin the world and verify the pop-up stays suppressed. Then right-click an owned token, open Actions, and use ? Quick tutorial to reopen it. Test from GM and player clients. No need to change the Player Actions/Magick module.
 
 **Upgrade:** Back up the world and existing `Z:\Data\modules\stl-combat-workflow` module, update to v0.2.2, restart or hard-refresh all clients. **Rollback:** restore v0.2.1. The preference is stored on the User document and persists across module rollback; it is harmless if an older release does not read it. Completed combat health changes are not undone by rollback.
+
+
+## v0.2.3 — Hide native Grapple Item in Attack selector
+
+WoD20 creates a `Melee Weapon` Item named **Grapple** in some character sheets. v0.2.1 gave Grapple its own Actions entry, but Attack still listed the native Item alongside Bite, Disarm, Kick, Punch and Sweep. To prevent duplicate/confusing entry points, **Attack → Weapon** now omits only Melee Weapon Items with a name exactly `Grapple` (case-insensitive, outer whitespace ignored). Other attacks, including Bite, Disarm, Kick, Punch, Sweep and Unarmed Strike, remain visible. The native Item is not deleted, changed, migrated or hidden from the WoD20 Actor sheet. A manually submitted Grapple Item selection is also rejected from Attack and directs the user to **Actions → Grapple**.
+
+**Dedicated Grapple** still opens its independent Strength + Brawl / Difficulty dialog and reuses the existing Hold/Resist/Escape/Release workflow. Older flagged combat cards, native WoD20 weapon Items, actor data and player tutorial preferences remain intact. No other modules or combat rules were changed.
+
+**Live check:** Back up your current module and world, update to v0.2.3, restart/refresh the browser, right-click a token, select Actions → Attack and open the Weapon dropdown. Confirm Grapple is absent, all other native maneuver items remain, and Actions → Grapple still opens its minimal dialog. Static/Node mock regression tests passed only if the GitHub build reports success; live Foundry verification remains pending. **Rollback:** restore v0.2.2, with no data migration or restoration needed.

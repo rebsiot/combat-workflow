@@ -2,7 +2,7 @@
   "id": "stl-combat-workflow",
   "title": "STL Combat Workflow",
   "description": "Guided attack, defense, damage, soak and optional health application for WoD20 M20/V20 using native dice rolls.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "authors": [
     {
       "name": "St. Louis v2 private toolkit"
@@ -35,6 +35,6 @@
   "url": "https://github.com/rebsiot/combat-workflow",
   "license": "MIT",
   "manifest": "https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json",
-  "download": "https://github.com/rebsiot/combat-workflow/releases/download/v0.2.2/stl-combat-workflow-v0.2.2.zip",
+  "download": "https://github.com/rebsiot/combat-workflow/releases/download/v0.2.3/stl-combat-workflow-v0.2.3.zip",
   "bugs": "https://github.com/rebsiot/combat-workflow/issues"
 }

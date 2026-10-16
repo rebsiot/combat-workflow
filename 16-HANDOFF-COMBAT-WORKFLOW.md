@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.2.2 experimental field-test
+**Artifact:** `stl-combat-workflow` v0.2.3 experimental field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -155,3 +155,11 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Adds independent `scripts/tutorial.js` ES module and `styles/tutorial.css` to manifest. Does not touch attack, Grapple, Magick, chat cards, health or existing system APIs. First-login tutorial opens after `ready`, four brief screens (Token Actions, Attack, Grapple, Chat/Soak/GM Apply).
 - Each person's opt-out is their own native Foundry User flag `flags.stl-combat-workflow.tutorialDismissed=true`, persisted by `game.user.setFlag`. No global/user-admin setting or forced completion. Closing without pressing final **Don't show again** does not store the flag; auto-prompt repeats on subsequent logins until dismissed. On-demand replay via a small `? Quick tutorial` footer inside the *existing* lightning-bolt Actions menu, including after dismissal; no extra permanent HUD icon.
 - Node mock test covers lifecycle, four screens, per-user opt-out and replay/DOM dedupe. Requires live Foundry v14 check with non-GM User-document flag write permission, dialog appearance and HUD link layout. No world/Actor/Scene migrations, no adjacent-module changes. Backup module/world before updating; rollback v0.2.1. Keep User flag untouched if rolling back.
+
+
+## v0.2.3 — Filter Grapple Item from Attack weapon choices
+
+- Screenshot showed the system-native **Grapple** Melee Weapon Item in the Attack dropdown beside Bite, Disarm, Kick, Punch and Sweep, despite v0.2.1 having a separate Grapple launcher.
+- Scope: owning Combat Workflow module 16 only. Attack populates the weapon options from `attackWeaponList(actor)` (the regular `weaponList(actor)` filtered only for Items with `type === 'Melee Weapon'` and trimmed case-insensitive `name === 'Grapple'`). No deletion or modification of the native Actor's Item; preserve `weaponList` for historical card validation and other internal uses. A manually provided suppressed Item id is rejected at Attack selection.
+- Leave Bite, Disarm, Kick, Punch, Sweep, Unarmed Strike, all ranged guns and other melee options visible. Grapple remains in Token HUD **Actions → Grapple** with its minimal Strength + Brawl dialogue and existing Hold sequence. Per-user first-login tutorial v0.2.2 intact.
+- Regression: Node mock includes all screenshot melee maneuvers and confirms only Grapple is hidden from Attack, while the source Item remains untouched. Live two-user Foundry/browser verification pending. Backup world/module before install; restore v0.2.2 for rollback. No cross-module API or schema changes. Update this owning handoff; no global data contract revisions required.
