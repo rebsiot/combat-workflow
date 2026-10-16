@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.2.3
+# STL Combat Workflow v0.2.4
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.3 removes the native Grapple maneuver Item from the Attack weapon selector only. The quick tutorial and dedicated Grapple flow remain unchanged. The filter is mock-tested; live Foundry verification remains pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.4 makes grapple-response buttons fit narrow chat cards while retaining the v0.2.3 Attack dropdown filter and the independent Grapple workflow. New layout tests are mock/static only; live Foundry verification remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.3/stl-combat-workflow-v0.2.3.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.4/stl-combat-workflow-v0.2.4.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -271,3 +271,16 @@ WoD20 creates a `Melee Weapon` Item named **Grapple** in some character sheets. 
 **Dedicated Grapple** still opens its independent Strength + Brawl / Difficulty dialog and reuses the existing Hold/Resist/Escape/Release workflow. Older flagged combat cards, native WoD20 weapon Items, actor data and player tutorial preferences remain intact. No other modules or combat rules were changed.
 
 **Live check:** Back up your current module and world, update to v0.2.3, restart/refresh the browser, right-click a token, select Actions → Attack and open the Weapon dropdown. Confirm Grapple is absent, all other native maneuver items remain, and Actions → Grapple still opens its minimal dialog. Static/Node mock regression tests passed only if the GitHub build reports success; live Foundry verification remains pending. **Rollback:** restore v0.2.2, with no data migration or restoration needed.
+
+
+## v0.2.4 — Compact grapple chat response buttons
+
+The Grapple/Hold chat workflow still uses the same native Strength + Brawl rolls, state transitions, permissions and existing flagged chat cards. Only the **labels and button layout** change. This corrects cramped two-column decision buttons in narrow Foundry WoD20 chat cards:
+
+- **Resist** — rolls Strength + Brawl, and **No Resist** — accepts the grapple without a resistance roll. The verbose explanation remains in the hover tooltips.
+- **Escape** and **Release Hold** replace Attempt Escape / Release Hold in the two-choice held state. **Resist Escape** replaces Contest Escape (Str + Brawl) at the holder's follow-up prompt. Tooltips document which actions use Strength + Brawl.
+- Two-choice grapple groups use an explicitly scoped equal-width two-column CSS grid, smaller horizontal padding and nonwrapping short button labels. Other combat actions (normal Dodge/Block/Parry, soak, GM Apply/Undo, split-attack continuation) retain their layout and behavior. The module does not change global Foundry or WoD20 button styling.
+
+**Upgrade:** Back up world and existing module folder. Update to v0.2.4 and refresh Foundry. **First test:** With an NPC targeted, Actions → Grapple, roll the initial attack. Verify **Resist** and **No Resist** fit side-by-side in the chat card. Establish a hold to check **Escape** and **Release Hold**, and attempt escape to check **Resist Escape**. Confirm v0.2.3's Attack → Weapon list still excludes only Grapple. Test in a player client as well as GM.
+
+**Rollback:** Restore v0.2.3. No migrations; existing health, chat history, character Items and per-user tutorial preference are unchanged. Node static/mock tests cover labels and CSS; real Foundry/viewport tests still pending.

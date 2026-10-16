@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.2.3. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.2.4. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -258,13 +258,18 @@ function card(state, actingUser = null) {
   if (state.soak) body += line(`Soak (${state.soak.choice})`, state.soak.successes);
   if (state.note && state.stage === "resolved") body += `<p class="stl-combat-help">${esc(state.note)}</p>`;
   if (state.stage === "grapple-defend") {
-    body += '<div class="stl-combat-actions">' + button("Resist (Str + Brawl)","grapple-resist") + button("Do Not Resist","grapple-none") + '</div>';
+    body += '<div class="stl-combat-actions stl-combat-actions--paired">' +
+      button("Resist","grapple-resist",'title="Roll Strength + Brawl to resist the grapple"') +
+      button("No Resist","grapple-none",'title="Do not resist the grapple"') + '</div>';
   }
   if (state.stage === "holding") {
-    body += '<div class="stl-combat-actions">' + button("Attempt Escape","grapple-escape") + button("Release Hold","grapple-release") + '</div>';
+    body += '<div class="stl-combat-actions stl-combat-actions--paired">' +
+      button("Escape","grapple-escape",'title="Roll Strength + Brawl to escape the hold"') +
+      button("Release Hold","grapple-release",'title="Release your hold without rolling"') + '</div>';
   }
   if (state.stage === "grapple-counter") {
-    body += '<div class="stl-combat-actions">' + button("Contest Escape (Str + Brawl)","grapple-hold") + '</div>';
+    body += '<div class="stl-combat-actions">' +
+      button("Resist Escape","grapple-hold",'title="Roll Strength + Brawl to maintain your hold"') + '</div>';
   }
   if (state.stage === "defense") {
     body += `<div class="stl-combat-actions">`;

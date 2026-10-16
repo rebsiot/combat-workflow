@@ -67,6 +67,27 @@ const last=()=>[...messages.values()].at(-1);
   assert.match(soakCard,/>No Soak<\/button>/);
   assert.match(soakCard,/title="Cannot or choose not to soak"/);
   assert.doesNotMatch(soakCard,/Cannot \/ Won/);
+
+  const baseGrapple={attackerName:"Marlowe",targetName:"ThugMelee (1)",weaponName:"Grapple / Hold",
+    damageType:"bashing",maneuver:"hold",attackSuccesses:2,netSuccesses:2,defense:null,damage:null,soak:null};
+  const grappling=run('card(st)',{st:{...baseGrapple,stage:"grapple-defend"}});
+  assert.match(grappling,/>Resist<\/button>/);
+  assert.match(grappling,/>No Resist<\/button>/);
+  assert.match(grappling,/title="Roll Strength \+ Brawl to resist the grapple"/);
+  assert.match(grappling,/stl-combat-actions--paired/);
+  assert.doesNotMatch(grappling,/>Resist \(Str \+ Brawl\)|>Do Not Resist/);
+  const holding=run('card(st)',{st:{...baseGrapple,stage:"holding"}});
+  assert.match(holding,/>Escape<\/button>/);
+  assert.match(holding,/>Release Hold<\/button>/);
+  assert.doesNotMatch(holding,/>Attempt Escape<\/button>/);
+  const counter=run('card(st)',{st:{...baseGrapple,stage:"grapple-counter"}});
+  assert.match(counter,/>Resist Escape<\/button>/);
+  assert.doesNotMatch(counter,/Contest Escape \(Str \+ Brawl\)/);
+  const combatCss=fs.readFileSync(path.join(__dirname,"../styles/combat-workflow.css"),"utf8");
+  assert.match(combatCss,/\.stl-combat-card \.stl-combat-actions--paired/);
+  assert.match(combatCss,/grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(combatCss,/white-space: nowrap/);
+
   const weaponNames=Array.from(run('attackWeaponList(actor)',{actor})).map(item=>item.name);
   assert.ok(weaponNames.includes("SMG"));
   assert.ok(!weaponNames.includes("Grapple"),"Grapple is a standalone maneuver, not a weapon option");

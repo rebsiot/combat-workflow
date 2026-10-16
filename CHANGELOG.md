@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.4 — 2026-10-16 — Compact grapple buttons
+
+- Shortened Grapple/Hold response buttons to **Resist / No Resist**, **Escape / Release Hold**, and **Resist Escape**, keeping native Strength + Brawl meanings in tooltips. No action IDs, chat flags, rolls or grapple rules changed.
+- Added a narrowly scoped equal-width two-column layout for the paired grapple choices, with reduced horizontal padding and single-line labels; prevents cramped/wrapped choices in Foundry's chat sidebar.
+- Standard weapon attacks, Dodge/Block/Parry, Soak, GM Apply/Undo, Token HUD, Magick, and per-user first-login tutorial remain unchanged.
+- Updated static/mock regression coverage. Live Foundry v14 chat layout verification still required.
+
+
 ## v0.2.3 — 2026-10-16 — Remove duplicate Grapple entry in Attack weapon list
 
 - WoD20 supplies Grapple as an owned Melee Weapon Item, which kept appearing in **Attack → Weapon** even after v0.2.1 introduced the separate Grapple launcher. The Attack dropdown now excludes exactly that native item by trimmed case-insensitive name and type; the Item remains in the Actor's Items and native WoD20 sheet.

@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.2.3 experimental field-test
+**Artifact:** `stl-combat-workflow` v0.2.4 experimental field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -163,3 +163,11 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Scope: owning Combat Workflow module 16 only. Attack populates the weapon options from `attackWeaponList(actor)` (the regular `weaponList(actor)` filtered only for Items with `type === 'Melee Weapon'` and trimmed case-insensitive `name === 'Grapple'`). No deletion or modification of the native Actor's Item; preserve `weaponList` for historical card validation and other internal uses. A manually provided suppressed Item id is rejected at Attack selection.
 - Leave Bite, Disarm, Kick, Punch, Sweep, Unarmed Strike, all ranged guns and other melee options visible. Grapple remains in Token HUD **Actions → Grapple** with its minimal Strength + Brawl dialogue and existing Hold sequence. Per-user first-login tutorial v0.2.2 intact.
 - Regression: Node mock includes all screenshot melee maneuvers and confirms only Grapple is hidden from Attack, while the source Item remains untouched. Live two-user Foundry/browser verification pending. Backup world/module before install; restore v0.2.2 for rollback. No cross-module API or schema changes. Update this owning handoff; no global data contract revisions required.
+
+
+## v0.2.4 — Two-button Grapple chat layout
+
+- User showed crowded Grapple defense/response buttons in the narrow chat sidebar. Keep one Token HUD lightning-bolt Actions menu and dedicated independent Grapple workflow from v0.2.1.
+- Only the ChatMessage card button labels/layout change: initial Grapple defense **Resist** / **No Resist**, holding **Escape** / **Release Hold**, escape counter **Resist Escape**. Each retains its existing `data-stl-combat-action` key, WoD20 native dice behavior, GM coordination and state machine; tooltips explain the longer Strength + Brawl text. No actor, Item, health, flag or schema mutation.
+- Added `.stl-combat-actions--paired` to paired Grapple button groups, with locally scoped two-column CSS grid and single-line typography. Other combat button groups and Foundry/other modules' buttons are unchanged.
+- Node mock/static test checks chat labels, tooltips, CSS selectors and preservation of earlier weapon dropdown filtering. Live Foundry chat-column verification pending. Backup module/world before upgrade; restore v0.2.3 for rollback. No shared API or global data contract changes.
