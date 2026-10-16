@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.10 — 2026-10-16 — One HUD Actions flyout (Combat and Magick)
+
+- Replaced the v0.1.9 single-purpose Token HUD attack icon with a distinctive small grid-style **Actions** menu button. The flyout displays two labeled entries, Combat and Magick, beside the native HUD rather than adding a tall column.
+- Combat invokes the existing `open({attackerToken:tokenDoc})` workflow. Magick invokes the active independent Player Actions `openPanel(tokenDoc.actor)` API; no duplicate casting or dice engine.
+- Hide Magick when Player Actions is disabled/missing; check Actor ownership, avoid duplicate HUD controls, keep Escape/focus support and native character-sheet Combat button.
+- No changes to combat rules, stage messages, resource/health writes, Actor/Token data, Player Actions module source, or Paradox integrations.
+- Node mock regression for HUD menu, per-token binding, Magick enabled/disabled, GM/non-owner permissions. Live Foundry v14 HUD/multiplayer validation pending.
+
+
 ## v0.1.9 — 2026-10-16 — Right-click Token HUD attack shortcut
 
 - Removed the dedicated left Token Controls shield tool, decluttering the permanent scene toolbar.

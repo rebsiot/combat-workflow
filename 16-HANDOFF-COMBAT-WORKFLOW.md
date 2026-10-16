@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.9 standalone field-test
+**Artifact:** `stl-combat-workflow` v0.1.10 standalone field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -117,3 +117,12 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Right-click HUD button uses WoD20 `assets/img/items/meleeweapons.svg`, inserted as a native `.control-icon` in `.col.right` directly following the native combat control (fallback to available HUD column), only when current user owns the Actor or is GM. Dedupe on re-renders.
 - `open({attackerToken})` accepts a Token/TokenDocument, resolves its linked/synthetic Actor and uses the TokenDocument UUID. No dependence on `canvas.tokens.controlled`; PC sheet `open({attackerActor})` and macro `open()` preserved.
 - No changed Actor or Scene data, combat state schema, dice/permissions contracts or adjacent modules. Foundry v14 TokenHUD markup integration is mock-tested only; confirm live right-click placement and correct token context. Rollback v0.1.8.
+
+
+## v0.1.10 — Compact Actions menu cross-module launcher
+
+- User reported v0.1.9 Token HUD crossed-swords icon resembled native Enter Initiative and wanted convenient player Magick without a column of six extra HUD controls; approved one Actions button with a labeled Combat/Magick flyout.
+- **Owned by module 16:** Replace v0.1.9 Token HUD button with one grid-style Actions icon + small two-entry flyout, attached to the same native Foundry v14 `renderTokenHUD` hook. Combat launches the existing `open({attackerToken:tokenDoc})`. Magick dynamically detects `game.modules.get("wod20-player-actions")?.active` and calls its published `api.openPanel(tokenDoc.actor)`; hide Magick when missing. This Actor parameter is verified in Player Actions v0.1.14 `scripts/player-actions.js`. No edits to Player Actions or cross-module API required.
+- Player Actions module ID `wod20-player-actions` and public `openPanel(actor)` remain independent. No rolls, Paradox, Resource, health, IDs, flags, import/export data or permissions contracts changed. Existing sheet button below Dodge and optional no-argument macro preserved; persistent left Token Controls shield was already removed in v0.1.9.
+- Native Token HUD flyout is shown only for the acting user with Actor ownership (or GM). Contrast and accessibility for menu items; tiny only when collapsed; menu out-of-flow to avoid stretching Token HUD column. Buttons use dynamic checks, not dead placeholders.
+- Automated Node mocks cover owner/GM visibility, deduplication, menu click, exact TokenDocument/Actor context, Magick API detection and keyboard close. **Live two-client Foundry HUD layout and Magick binding have not yet been tested.** Rollback v0.1.9. Companion Player Actions handoff `05-HANDOFF-UPDATE-0.1.14.md` should note the new *consumer* of `openPanel(actor)`; no code changes required in 05.

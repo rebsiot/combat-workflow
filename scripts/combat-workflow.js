@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.9. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.10. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -673,37 +673,96 @@ Hooks.once("ready", async () => {
   console.info(`${MODULE} | Native WoD20 attack -> defense -> damage -> soak workflow available via game.stlCombatWorkflow.open()`);
 });
 
-// Compact shortcut on the native v14 Token HUD (opened by right-click).
-// Foundry v14 passes an HTMLElement to renderTokenHUD and provides hud.document
-// as the associated TokenDocument. Never depend on selected/controlled tokens.
-function addTokenHudCombatButton(hud, root) {
+// One native Token HUD launcher for both independent combat and magick tools.
+// The panel is a small overlay; it does not add columns or replace TokenHUD.
+function magickPanelAPI() {
+  const mod = game.modules?.get?.("wod20-player-actions");
+  return mod?.active && typeof mod.api?.openPanel === "function" ? mod.api : null;
+}
+async function launchTokenAction(action, tokenDoc) {
+  const actor = tokenDoc?.actor;
+  if (!actor || !mayUse(game.user.id, actor)) {
+    return notify("You do not control this token's Actor.");
+  }
+  if (action === "combat") return open({attackerToken: tokenDoc});
+  if (action === "magick") {
+    const magick = magickPanelAPI();
+    if (!magick) return notify("Enable WoD20 Player Actions to use Magick.");
+    // Player Actions v0.1.14+ publicly accepts an Actor in openPanel(actor).
+    // Never use a global selected token or create a second casting engine.
+    return magick.openPanel(actor);
+  }
+}
+function addTokenHudActionsButton(hud, root) {
   if (game.system?.id !== "worldofdarkness" || !root?.querySelector) return false;
   const tokenDoc = hud?.document ?? hud?.object?.document;
   const actor = tokenDoc?.actor;
   if (!tokenDoc?.uuid || !actor || !mayUse(game.user.id, actor)) return false;
-  if (root.querySelector(".stl-combat-hud-button")) return false;
+  if (root.querySelector(".stl-token-actions-button")) return false;
   const container = root.querySelector(".col.right") ?? root.querySelector(".col.left");
   if (!container) return false;
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "control-icon stl-combat-hud-button";
-  btn.title = "Attack — Combat Workflow";
-  btn.setAttribute("aria-label", "Attack — Combat Workflow");
-  btn.setAttribute("data-tooltip", "Attack — Combat Workflow");
-  btn.innerHTML = '<img src="/systems/worldofdarkness/assets/img/items/meleeweapons.svg" alt="" aria-hidden="true">';
-  btn.addEventListener("click", event => {
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "control-icon stl-token-actions-button";
+  button.title = "Actions — Combat & Magick";
+  button.setAttribute("aria-label", "Actions — Combat & Magick");
+  button.setAttribute("data-tooltip", "Actions");
+  button.setAttribute("aria-haspopup", "true");
+  button.setAttribute("aria-expanded", "false");
+  button.innerHTML = '<i class="fa-solid fa-grip" aria-hidden="true"></i>';
+
+  const menu = document.createElement("div");
+  menu.className = "stl-token-actions-menu";
+  menu.hidden = true;
+  menu.setAttribute("role", "group");
+  menu.setAttribute("aria-label", `Actions for ${actor.name}`);
+  const closeMenu = () => {
+    menu.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+  };
+  const addAction = (name, icon, action) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "stl-token-actions-item";
+    item.setAttribute("aria-label", name);
+    item.innerHTML = `<i class="${icon}" aria-hidden="true"></i><span>${name}</span>`;
+    item.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu();
+      void Promise.resolve().then(() => launchTokenAction(action, tokenDoc)).catch(error => {
+        console.error(`${MODULE} | Token HUD ${action} failed`, error);
+        notify(`Actions: ${error.message}`, "error");
+      });
+    });
+    menu.appendChild(item);
+  };
+  addAction("Combat", "fa-solid fa-swords", "combat");
+  if (magickPanelAPI()) addAction("Magick", "fa-solid fa-wand-magic-sparkles", "magick");
+
+  button.addEventListener("click", event => {
     event.preventDefault();
     event.stopPropagation();
-    void open({attackerToken:tokenDoc}).catch(error => {
-      console.error(`${MODULE} | Token HUD shortcut failed`, error);
-      notify(`Combat workflow: ${error.message}`);
-    });
+    menu.hidden = !menu.hidden;
+    button.setAttribute("aria-expanded", String(!menu.hidden));
   });
+  menu.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeMenu();
+      button.focus?.();
+    }
+  });
+  // The HUD itself disappears on close; all handlers and the menu go with it.
+  menu.addEventListener("click", event => event.stopPropagation());
+
   const nativeCombat = container.querySelector?.('button[data-action="combat"]');
-  if (nativeCombat?.insertAdjacentElement) nativeCombat.insertAdjacentElement("afterend", btn);
-  else container.appendChild(btn);
+  if (nativeCombat?.insertAdjacentElement) nativeCombat.insertAdjacentElement("afterend", button);
+  else container.appendChild(button);
+  container.appendChild(menu);
   return true;
 }
 Hooks.on("renderTokenHUD", (hud, root) => {
-  addTokenHudCombatButton(hud, root?.querySelector ? root : hud?.element);
+  addTokenHudActionsButton(hud, root?.querySelector ? root : hud?.element);
 });

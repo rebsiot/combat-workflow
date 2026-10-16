@@ -111,16 +111,67 @@
   color: inherit !important;
 }
 
-/* Foundry v14 right-click Token HUD: native-size attack icon, no sidebar tool. */
-.stl-combat-hud-button img {
-  display: block;
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-  margin: auto;
+/* One compact right-click Token HUD Actions control and horizontal flyout. */
+.stl-token-actions-button i {
   pointer-events: none;
+  font-size: 18px;
+  line-height: 1;
 }
-.stl-combat-hud-button:focus-visible {
+.stl-token-actions-button:focus-visible {
   outline: 2px solid #e4e9fa;
   outline-offset: 2px;
+}
+.stl-token-actions-menu[hidden] {
+  display: none !important;
+}
+.stl-token-actions-menu {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 0;
+  z-index: 100;
+  width: 172px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  border: 1px solid #9da9bc;
+  border-radius: 6px;
+  background: #222832;
+  box-shadow: 0 6px 20px rgba(0,0,0,.65);
+  color: #f4f6fa;
+  text-shadow: none;
+  pointer-events: auto;
+}
+.stl-token-actions-menu .stl-token-actions-item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 9px;
+  margin: 0;
+  border: 1px solid #5b6879;
+  border-radius: 4px;
+  background: #333e4b;
+  color: #f5f7fb !important;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.stl-token-actions-menu .stl-token-actions-item i {
+  width: 18px;
+  flex: 0 0 18px;
+  text-align: center;
+  pointer-events: none;
+}
+.stl-token-actions-menu .stl-token-actions-item:hover,
+.stl-token-actions-menu .stl-token-actions-item:focus-visible {
+  border-color: #e0e7f5;
+  background: #4b5c71;
+  color: #fff !important;
+  outline: 2px solid rgba(210,226,250,.5);
 }

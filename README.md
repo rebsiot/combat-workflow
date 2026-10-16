@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.9
+# STL Combat Workflow v0.1.10
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The v0.1.9 Token HUD shortcut is mock-tested; live Foundry v14 HUD verification remains pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The v0.1.10 compact Actions flyout is mock-tested; live Foundry v14 HUD and two-user verification remain pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.9/stl-combat-workflow-v0.1.9.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.10/stl-combat-workflow-v0.1.10.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -51,7 +51,7 @@ To install through Foundry Setup, use **Install Module → Manifest URL** and pa
 - **Target exactly one defender token** using Foundry's normal targeting control; an online GM is required. Clicking Combat opens the weapon/attack dialog and then the sequential Chat workflow.
 - The Dodge button itself remains the independent Dodge module's native single-defense roll; Combat does not replace it.
 
-- **On the canvas:** Right-click the token you control to open its native **Token HUD**. Click the small crossed-swords **Attack — Combat Workflow** control alongside the HUD's combat controls. A target must already be selected. The HUD token becomes the attacker even if it is not currently selected.
+- **On the canvas:** Right-click an owned token to open Foundry's native **Token HUD**. Click the small grid-style **Actions** icon, then choose **Combat** or **Magick** from the compact flyout. Combat requires one defender already targeted; Magick opens the existing Player Actions *Use Magick* panel for that same token's Actor. The HUD token is used independently of the current selected token.
 - **Removed:** The old shield icon is no longer inserted in the left Token Controls toolbar.
 - **Optional hotbar macro:** You can still create a Script Macro (requires exactly one selected attacker token) with:
 
@@ -59,7 +59,7 @@ To install through Foundry Setup, use **Install Module → Manifest URL** and pa
 await game.modules.get("stl-combat-workflow").api.open();
 ```
 
-- The HUD shortcut is shown for a token whose Actor you own (or when logged in as GM). It uses the right-clicked TokenDocument, not whichever token is selected. The sheet button uses its Actor with no token-selection requirement. The optional macro uses a single selected attacking token.
+- The Actions flyout is shown for a token whose Actor you own (or when logged in as GM). It uses the right-clicked TokenDocument, not whichever token is selected. **Magick** appears only when `wod20-player-actions` is enabled and exposes its `openPanel(actor)` API; Combat remains independently available. The sheet button uses its Actor with no token-selection requirement; the optional macro uses a single selected attacking token.
 - An **online GM is required** to coordinate turns and perform health updates. One active GM serves as workflow authority; players still roll their own Actor dice by clicking the current Chat card button.
 - The correct Actor owner (or GM) clicks each step. Stage changes persist in the ChatMessage flags and can survive clients being reloaded.
 
@@ -91,7 +91,7 @@ As of v0.1.2, the Dodge / Block / Parry / No Defense chat buttons and later Dama
 
 1. Log in as GM and as a player in separate browser clients; confirm WoD20 version and enabled module.
 2. Place one Mage Actor and one target token, then give the Mage a native Melee Weapon Item.
-3. Target the defender, then click **Combat directly below Dodge** on the PC sheet, without selecting an attacker token. Repeat by right-clicking the attacking token and using the crossed-swords Token HUD icon (no selection required).
+3. Target the defender, then click **Combat directly below Dodge** on the PC sheet, without selecting an attacker token. Repeat by right-clicking the attacking token and choosing Actions → Combat (no selection required). Also test Actions → Magick with Player Actions enabled.
 4. Roll an attack and verify **both** a native dice ChatMessage and an interactive Workflow ChatMessage appear.
 5. On defender client choose Dodge and roll; check net successes, then attacker damage, then defender soak.
 6. As GM verify the final health preview, Apply, and Undo; confirm only the selected target Actor's wound counts changed.
@@ -103,7 +103,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.9 to v0.1.8, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.8 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.1.10 to v0.1.9, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.9 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -182,3 +182,17 @@ Active combat choices now display **`<Actor name> Roll`** (for example, **ThugMe
 - This uses Foundry v14 `renderTokenHUD`; it does not replace the TokenHUD class or modify WoD20 templates, other token controls, permissions, combat state, or dice. No Actor/Scene/Token data migrations or writes occur from simply showing the HUD.
 - **Live check:** In a test world, right-click a player-owned attacker; verify the small swords icon appears and the sidebar shield is absent. Target a defender while another token is selected, then click swords. Confirm the correct attacking character appears in the attack dialog. Verify a player does not get the button on an unowned token and a GM does.
 - **Upgrade:** Back up the module and world, update to v0.1.9, refresh/restart as necessary. **Rollback:** restore the v0.1.8 module ZIP. Existing Actors, items, scenes, tokens, and roll history are not migrated.
+
+
+### One Token HUD Actions flyout (v0.1.10)
+
+The native right-click Token HUD has **one** added grid/menu-style **Actions** button. It opens a small labeled flyout beside the HUD, rather than growing a column of competing icons. It currently offers only:
+
+- **Combat** — launches the existing independent Combat Workflow using exactly the right-clicked TokenDocument; target one defender first.
+- **Magick** — calls `game.modules.get("wod20-player-actions").api.openPanel(tokenDoc.actor)` and opens the existing Player Actions **Use Magick** window with that Actor; if Player Actions is disabled, unavailable or lacks the API, Magick is omitted. No casting code, dice, flags, resources, Paradox or Player Actions module is changed.
+
+The always-visible left sidebar shield remains removed. The PC-sheet Combat icon below Dodge remains. A personal Script Macro can still invoke the no-argument `game.stlCombatWorkflow.open()` with exactly one controlled attacker token. The flyout has explicit accessible labels, Escape-to-close, click-to-toggle, contrast/focus treatment, deduplication on HUD rendering and ownership checks. It is a HUD-only DOM enhancement, not a TokenHUD replacement or Actor/Scene migration.
+
+**Live smoke test:** With Player Actions v0.1.14+ enabled, right-click a player-owned Mage token. Click the grid Actions button and confirm the two-item Combat/Magick flyout appears beside the HUD without extending the icon column. Choose Magick and check the correct Mage appears in the existing Use Magick panel. Repeat Combat with one target and verify the correct token attacks. Disable Player Actions temporarily: Actions should offer only Combat. Check non-owner players do not get the launcher for an unowned token; GM can use it. The new HUD behavior is **mock-tested only**, not yet confirmed live.
+
+**Upgrade:** Back up `Z:\Data\modules\stl-combat-workflow` and test world, install v0.1.10, restart Foundry and hard-refresh all browsers. No data conversion required. **Rollback:** restore v0.1.9 module ZIP; existing workflow health changes and chat history are unaffected by changing the HUD launcher.
