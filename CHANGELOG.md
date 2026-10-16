@@ -1,12 +1,23 @@
 # Changelog
 
-## v0.1.3 — 2026-10-15 — Combat pacing and newest active chat card
+## v0.1.4 — 2026-10-15 — Combat result banners, native swords and health Undo correction
 
-- Fixed workflow advancing before native roll chat creation or the matching Dice So Nice animation completes.
-- Each completed stage creates its next workflow message at the bottom of the chat, below the native dice result, and removes only the previous workflow card.
-- Native WoD20 dice/chat cards remain untouched. Existing old workflow cards are not mass-migrated.
-- Preserved schema 1, Actor health, GM Apply/Undo safety checks, token/sheet launchers and native dice.
-- Automated mock tests and module syntax checks; new pacing/order awaits live Foundry verification.
+- Added clearly colored end-state banners: MISS, DODGED/BLOCKED/PARRIED, NO DAMAGE or final damage amount and type.
+- Outcome subtitle distinguishes damage application, GM skip and GM Undo; Undo shows a clear DAMAGE UNDONE banner.
+- Replaced the sheet Combat shortcut shield art with the crossed-swords silhouette from the native `meleeweapons.svg` while keeping the 30px button and color.
+- Fixed Apply/Undo to update WoD20 native woundlevel, woundpenalty and total health fields atomically alongside damage counts; previously Undo could leave Incapacitated visible after restoring wounds.
+- No changes to damage calculations, sockets, native dice or the separate Dodge module.
+- Added banner/SVG and health-state regression tests for restored 0 wounds and Incapacitated back to Wounded, including independent chimerical damage; live Foundry verification remains pending.
+
+
+## v0.1.3 — 2026-10-15 — Dice animation pacing and current action at bottom
+
+- Wait for WoD20's actual native ChatMessage creation before advancing each roll. The system's `DiceRoller` initiates chat creation without awaiting it.
+- When Dice So Nice is active, wait for the associated 3D roll animation to complete before sending the next combat action. The wait is bounded to prevent stalled sessions; if the module/API is missing, the native roll still works.
+- Post the next Combat Workflow state as a fresh, bottom-of-chat message **after** the dice result and remove the previous *workflow* card. Native dice-roll chat messages are retained and remain immediately above the current choices.
+- Temporary APPLYING health protection and all GM-only Apply/Undo checks remain unchanged. Only the prior workflow chat cards are deleted in the new flow; Actors and item data are not migrated.
+- Added Node mock coverage for chronological workflow-card replacement, no duplicate actionable cards, completion of native roll chat creation, and Dice So Nice waiting.
+- User screenshot confirmed basic attack/defense/damage/soak and guarded GM Undo on a live Foundry instance in v0.1.2; the v0.1.3 order/timing changes have not been verified live.
 
 
 ## v0.1.2 — 2026-10-15 — Readable combat chat actions

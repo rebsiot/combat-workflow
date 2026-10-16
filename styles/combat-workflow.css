@@ -38,6 +38,52 @@
   cursor: not-allowed;
 }
 .stl-combat-outcome { font-weight:bold; margin-top:12px; font-size:1.05em; }
+/* Colored result states are local to our chat cards, not native WoD20 dice. */
+.stl-combat-card .stl-combat-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 11px;
+  margin: 12px 0 9px;
+  border: 1px solid;
+  border-radius: 6px;
+  text-align: center;
+  line-height: 1.2;
+  text-shadow: none;
+}
+.stl-combat-card .stl-combat-result strong {
+  display: block;
+  font-size: 1.12em;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: .035em;
+  color: inherit !important;
+}
+.stl-combat-card .stl-combat-result span {
+  display: block;
+  font-size: .9em;
+  color: inherit !important;
+}
+.stl-combat-card .stl-combat-result--miss {
+  background: #48323a;
+  color: #ffebed !important;
+  border-color: #d68d9a;
+}
+.stl-combat-card .stl-combat-result--hit {
+  background: #593034;
+  color: #ffeced !important;
+  border-color: #e58c90;
+}
+.stl-combat-card .stl-combat-result--none {
+  background: #274939;
+  color: #e6ffee !important;
+  border-color: #8ac6a3;
+}
+.stl-combat-card .stl-combat-result--undone {
+  background: #4b4030;
+  color: #fff5dc !important;
+  border-color: #dfbc76;
+}
 .stl-combat-prompt { display:grid; gap:12px; padding:8px 4px; }
 .stl-combat-prompt label { display:grid; gap:4px; }
 .stl-combat-prompt input, .stl-combat-prompt select { min-height:28px; width:100%; }

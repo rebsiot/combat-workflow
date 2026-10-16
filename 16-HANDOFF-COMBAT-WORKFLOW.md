@@ -1,8 +1,8 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.3 standalone field-test
-**Status:** User confirms complete basic combat and GM Undo in v0.1.2; new v0.1.3 chat order and Dice So Nice pacing are mock-tested only
+**Artifact:** `stl-combat-workflow` v0.1.4 standalone field-test
+**Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
 ## Agreed intent
@@ -55,10 +55,27 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - v0.1.1 remains the rollback target. v0.1.2 changes no Actors, flags, schemas, hook contracts, or other module data.
 - Need real live screenshot/check in user's dark Foundry theme after update; two-player workflow still unverified.
 
-## v0.1.3: Newest combat card after native roll and Dice So Nice
+## v0.1.3: Wait for native rolls / keep current card below dice
 
-- Owning development remains 16.1. User's live v0.1.2 screenshot showed native attack, defense, damage and soak chat cards, but the changing workflow card remained above them and advanced before the 3D dice finished.
-- WoD20 7.3.1 DiceRoller initiates ChatMessage.create without awaiting it. The module now observes createChatMessage for the local actor's native roll, and optionally waits for Dice So Nice's waitFor3DAnimationByMessageID before sending progression.
-- ChatMessage progression posts a fresh workflow card and deletes only the superseded workflow card. No native roll cards are removed. APPLYING stage remains updated in place for once-only health mutation safety.
-- Tests mock chat creation, Dice So Nice completion, workflow replacement and GM Apply/Undo. New live two-player Foundry verification remains necessary.
-- No other module contracts altered. v0.1.2 is the rollback target; deletions of prior workflow chat cards are intentional in v0.1.3 and not restored by rollback.
+- Live user screenshot of v0.1.2 showed a completed attack/defense/damage/soak sequence with Undo, but the workflow card stayed above older roll results and advanced before Dice So Nice finished.
+- Inspection of public WoD20 7.3.1 `roll-dice.js` shows native `DiceRoller` starts `ChatMessage.create(chatData)` without awaiting it. `awaitNativeRollDisplay()` listens on `createChatMessage` for the local author's Actor and actual rolled dice and only then optionally waits for `game.dice3d.waitFor3DAnimationByMessageID(nativeMessage.id)` (guarded by presence of the Dice So Nice module/API and capped timeouts). The native DiceRoller remains the only roller.
+- `advanceMessage()` creates the next workflow ChatMessage **after** the roll and deletes the prior workflow ChatMessage to keep one actionable card at the bottom of the chat. If deletion fails, it attempts to mark the old one inactive; if new-card creation fails, the old one remains. Native WoD20 dice/chat rolls are never deleted. Intermediate APPLYING uses `updateMessage()` in place to preserve the once-only health write guard.
+- Preserves schema 1, native Actor data, system roll/chat types, chat flags, permissions, sheet launcher/Dodge integration, and Combat Library contract. No unrelated modules changed.
+- New tests `test-roll-timing.cjs`, updated `test-workflow.cjs`; Node mock checks and parse checks pass. Need a real Dice So Nice roll and a 2-client GM/player sequence to verify expected pacing/order in Foundry 14.
+- v0.1.2 is the release rollback. Disabling v0.1.3 does not restore intentionally deleted old workflow cards. World health changes remain subject to normal Undo/backup discipline.
+
+## v0.1.4 result banner and sheet icon
+
+- Owning chat 16.1, repository `rebsiot/combat-workflow`; preserves module ID and schema 1.
+- User requested a conspicuous colored result at end of each attack: misses, successful defenses, zero damage, and final damage amount/type. Added a single scoped status banner to each terminal state, with separate color for undone health.
+- Sheet launcher still belongs to Combat Workflow (not Dodge). Replaced its original shield art with the crossed-swords silhouette from native WoD20 `assets/img/items/meleeweapons.svg`, rendered white against the existing sheet splat-color square.
+- No change to native rolls, attack/soak calculations, chats' progressive placement, GM permissions, health data or Undo mechanics.
+- Regression checks include banner states, escape safety and sheet icon. Syntax/Node mock only, not live Foundry. v0.1.3 rollback.
+- Cross-module contract unchanged: read-only integration with Dodge class `macroBtn.wod20-dodge-button`. No other handoff edits required.
+
+## v0.1.4 follow-up: Restore displayed wound condition on Apply/Undo
+
+- User live report: rewinding three damage after Incapacitated restored wound counts but left the condition displayed as Incapacitated. Root cause: module only wrote the bashing/lethal/aggravated counters while WoD20 `module/actor/data/wod-actor-base.js` separately stores `system.health.damage.woundlevel`, `woundpenalty`, and `system.traits.health.totalhealthlevels`. Derived computation is async and not a guaranteed persisted document update.
+- New `nativeHealthFields(actor, damage)` mirrors WoD20's ordered `CONFIG.worldofdarkness.woundLevels` and `max(normal,chimerical)` logic. Apply writes updated damage object plus native derived total-health fields atomically; Undo writes restored counters and condition/penalty/remaining health in the same update. The previous guard against intervening wound-count changes remains. Chimerical counts are preserved.
+- Tests cover 0 damage cleared, 2 wounds to Hurt, 4+3 to Incapacitated followed by Undo to Wounded, correct wound penalties and remaining levels, and chimerical severity. No live Foundry test for this fix yet.
+- Important caveat: Existing inconsistent Actors from pre-v0.1.4 Undo require manual inspection; installing this version does not mass-edit Actors.

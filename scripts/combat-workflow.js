@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.3. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.4. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -87,6 +87,40 @@ function defaultDamagePool(actor, item, netHits) {
   const base = attributeValue(actor, attr) + (item ? safeInt(damage.bonus) : 0);
   return {pool:Math.max(0, base + extra), extra, attribute:attr};
 }
+// WoD20 stores health state, penalty and remaining health separately
+// from the bashing/lethal/aggravated totals. Persist all in one update.
+function nativeHealthFields(actor, damage) {
+  const health = actor.system?.health;
+  const levels = Object.keys(CONFIG.worldofdarkness?.woundLevels ?? {});
+  if (!health?.damage || !levels.length || levels.some(key => !health[key])) {
+    throw new Error("Native WoD20 health levels unavailable; review health on Actor sheet");
+  }
+  const count = values => VALID_DAMAGE.reduce((sum, key) => sum + Math.max(0, safeInt(values?.[key])), 0);
+  const wounded = Math.max(count(damage), count(damage.chimerical));
+  let remaining = wounded;
+  let maxHealth = 0;
+  let active = null;
+  for (const key of levels) {
+    const entry = health[key];
+    const capacity = Math.max(0, safeInt(entry.total));
+    maxHealth += capacity;
+    if (remaining > 0) {
+      remaining -= capacity;
+      if (remaining <= 0) active = entry;
+    }
+  }
+  if (wounded > 0 && !active) active = health[levels[levels.length - 1]];
+  if (maxHealth < 1) throw new Error("Target has no configured native health levels");
+  const fields = {
+    "system.health.damage.woundlevel": active ? String(active.label ?? "") : "",
+    "system.health.damage.woundpenalty": active ? safeInt(active.penalty) : 0
+  };
+  if (actor.system?.traits?.health?.totalhealthlevels) {
+    fields["system.traits.health.totalhealthlevels.max"] = maxHealth;
+    fields["system.traits.health.totalhealthlevels.value"] = maxHealth - wounded;
+  }
+  return fields;
+}
 function resolveContext(state) {
   return `${esc(state.attackerName)} vs. ${esc(state.targetName)} | ${esc(state.weaponName)} | ${esc(state.damageType)}`;
 }
@@ -94,6 +128,27 @@ function button(label, action, extra = "") {
   return `<button type="button" data-stl-combat-action="${esc(action)}" ${extra}>${esc(label)}</button>`;
 }
 function line(label, value) { return `<div class="stl-combat-line"><span>${esc(label)}</span><b>${esc(value)}</b></div>`; }
+function resultBanner(state) {
+  if (state.stage === "miss") {
+    const defended = {dodge:"DODGED!",block:"BLOCKED!",parry:"PARRIED!"};
+    const label = defended[state.defense?.choice] ?? "MISSED!";
+    return `<div class="stl-combat-result stl-combat-result--miss" role="status"><strong>${esc(label)}</strong><span>Attack avoided — no damage.</span></div>`;
+  }
+  if (!["resolved", "applying", "done"].includes(state.stage)) return "";
+  const damage = Math.max(0, safeInt(state.finalDamage));
+  const isUndone = state.stage === "done" && String(state.note ?? "").startsWith("Damage undone by GM");
+  const isSkipped = state.stage === "done" && String(state.note ?? "").startsWith("Not applied to Actor health");
+  const kind = isUndone ? "undone" : (damage === 0 ? "none" : "hit");
+  const label = isUndone ? "DAMAGE UNDONE" : (damage === 0 ? "NO DAMAGE" : `${damage} ${String(state.damageType || "damage").toUpperCase()} DAMAGE`);
+  let detail;
+  if (isUndone) detail = `${damage} ${String(state.damageType || "damage").toLowerCase()} damage undone — health restored.`;
+  else if (isSkipped) detail = "Recorded only — not applied to health.";
+  else if (damage === 0) detail = "No health levels lost after soak.";
+  else if (state.stage === "resolved") detail = "After soak — awaiting GM decision.";
+  else if (state.stage === "applying") detail = "Applying to health…";
+  else detail = "Damage applied to health.";
+  return `<div class="stl-combat-result stl-combat-result--${kind}" role="status"><strong>${esc(label)}</strong><span>${esc(detail)}</span></div>`;
+}
 function card(state) {
   const header = `<div class="stl-combat-header"><strong>Combat Workflow</strong><small> ${esc(state.stage.toUpperCase())} </small></div>`;
   let body = `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
@@ -118,9 +173,8 @@ function card(state) {
     body += `<p class="stl-combat-help">Defender: roll applicable soak, or accept the damage without soaking.</p><div class="stl-combat-actions">`;
     body += button("Roll Soak", "soak") + button("Cannot / Won't Soak", "no-soak") + `</div>`;
   }
-  if (state.stage === "miss") body += `<p class="stl-combat-outcome">Attack missed; no damage roll needed.</p>`;
+  body += resultBanner(state);
   if (state.stage === "resolved" || state.stage === "applying" || state.stage === "done") {
-    body += `<div class="stl-combat-outcome">${esc(state.finalDamage)} ${esc(state.damageType)} health level(s) after soak</div>`;
     if (state.stage === "resolved") {
       body += `<p class="stl-combat-help">GM: review the target's current health before applying damage.</p><div class="stl-combat-actions">`;
       body += button("Apply to Health", "apply") + button("Leave Unapplied", "skip") + `</div>`;
@@ -242,7 +296,13 @@ async function acceptAdvance(payload) {
     s.stage = "applying";
     await updateMessage(msg, s);
     const changes = {};
-    for (const key of VALID_DAMAGE) changes[`system.health.damage.${key}`] = safeInt(s.undo.before[key]);
+    const restored = {...target.system.health.damage};
+    for (const key of VALID_DAMAGE) {
+      const count = safeInt(s.undo.before[key]);
+      changes[`system.health.damage.${key}`] = count;
+      restored[key] = count;
+    }
+    Object.assign(changes, nativeHealthFields(target, restored));
     await target.update(changes);
     s.stage = "done";
     s.note = "Damage undone by GM; prior health counts restored.";
@@ -267,7 +327,14 @@ async function acceptAdvance(payload) {
     const max = CombatHelper.GetMaxHealthLevels(target.system);
     if (max < 1) throw new Error("Target has no native health track; inspect before resolving");
     const applied = CombatHelper.ApplyDamageWithOverflow(updated, s.damageType, s.finalDamage, max);
-    await target.update({"system.health.damage":updated});
+    const healthFields = nativeHealthFields(target, updated);
+    updated.woundlevel = healthFields["system.health.damage.woundlevel"];
+    updated.woundpenalty = healthFields["system.health.damage.woundpenalty"];
+    const changes = {"system.health.damage":updated};
+    for (const [key, value] of Object.entries(healthFields)) {
+      if (!key.startsWith("system.health.damage.")) changes[key] = value;
+    }
+    await target.update(changes);
     s.undo = {before,after:Object.fromEntries(VALID_DAMAGE.map(k => [k,safeInt(updated[k])]))};
     s.stage = "done";
     s.note = applied === s.finalDamage ? "Applied to native Actor health." : `Applied ${applied}; remainder requires GM adjudication (overflow).`;
@@ -485,10 +552,11 @@ function sheetButtonColor(dodge, dice) {
 function combatSheetIcon(color) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="30" height="30" aria-hidden="true" focusable="false" style="border-radius:3px;height:30px;width:30px">
     <rect width="30" height="30" fill="${color}"/>
-    <g fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M15 4.5 23.5 8v7c0 5-3 8-8.5 10.5C9.5 23 6.5 20 6.5 15V8L15 4.5Z"/>
-      <path d="M11 18.7 19 10.7m-1.2-1.2 2.3 2.3m-10 7.1 1.7 1.7M14 15.7l2 2"/>
-    </g>
+    <svg x="2" y="2" width="26" height="26" viewBox="0 0 512 512" aria-hidden="true">
+      <g transform="translate(-33,-14)">
+        <path fill="#fff" d="M19.75 14.438c59.538 112.29 142.51 202.35 232.28 292.718l3.626 3.75.063-.062c21.827 21.93 44.04 43.923 66.405 66.25-18.856 14.813-38.974 28.2-59.938 40.312l28.532 28.53 68.717-68.717c42.337 27.636 76.286 63.646 104.094 105.81l28.064-28.06c-42.47-27.493-79.74-60.206-106.03-103.876l68.936-68.938-28.53-28.53c-11.115 21.853-24.413 42.015-39.47 60.593-43.852-43.8-86.462-85.842-130.125-125.47-.224-.203-.432-.422-.656-.625C183.624 122.75 108.515 63.91 19.75 14.437zm471.875 0c-83.038 46.28-154.122 100.78-221.97 161.156l22.814 21.562 56.81-56.812 13.22 13.187-56.438 56.44 24.594 23.186c61.802-66.92 117.6-136.92 160.97-218.72zm-329.53 125.906l200.56 200.53c-4.36 4.443-8.84 8.793-13.405 13.032L148.875 153.53l13.22-13.186zm-76.69 113.28l-28.5 28.532 68.907 68.906c-26.29 43.673-63.53 76.414-106 103.907l28.063 28.06c27.807-42.164 61.758-78.174 104.094-105.81l68.718 68.717 28.53-28.53c-20.962-12.113-41.08-25.5-59.937-40.313 17.865-17.83 35.61-35.433 53.157-52.97l-24.843-25.655-55.47 55.467c-4.565-4.238-9.014-8.62-13.374-13.062l55.844-55.844-24.53-25.374c-18.28 17.856-36.602 36.06-55.158 54.594-15.068-18.587-28.38-38.758-39.5-60.625z"/>
+      </g>
+    </svg>
   </svg>`;
 }
 function addSheetCombatButtons(app, root) {

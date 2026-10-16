@@ -1,4 +1,4 @@
-# STL Combat Workflow v0.1.3
+# STL Combat Workflow v0.1.4
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
 **Status:** Published for personal-use field testing. Automated/mock-tested only; NOT yet verified in live Foundry.
@@ -23,17 +23,18 @@ A guided **single-target, single-attack** M20/V20 combat flow using the WoD20 sy
 
 Every roll is made using WoD20's own `DiceRollContainer` and `DiceRoller`, producing native chat rolls and Dice So Nice integration if installed. This module does not implement an alternative d10 algorithm or modify Paradox.
 
-### Combat chat order and 3D dice timing (v0.1.3)
+### Workflow card position and animation timing (v0.1.3)
 
-After the native roll chat message has been created, Combat Workflow waits for the matching Dice So Nice animation to finish when Dice So Nice is enabled. It then posts the **newest active workflow card below the roll** and removes only the previous workflow card. Native WoD20 roll chat messages stay in chronological order above the current buttons. Previously created v0.1.2 workflow cards are not automatically rearranged.
+The combat card is always the **last/newest** chat message after its current roll. A stage transition creates the new card and deletes only the prior Combat Workflow *card*, not any WoD20 dice/chat roll. Previous workflow stages therefore do not form a growing stack of button cards. **Old chat messages created in v0.1.2 are not migrated or rearranged.** They may be finished or left as-is; new transitions use the new behavior.
 
-This uses native Foundry `createChatMessage` and the optional Dice So Nice `waitFor3DAnimationByMessageID` API. There is no new dice roller. Timeouts (2.5 seconds for native message creation, 30 seconds for optional animation) prevent indefinitely frozen combat if an integration fails. Different users' animation completion times may differ.
+The module observes WoD20's native chat-roll creation and, where Dice So Nice is enabled and its `waitFor3DAnimationByMessageID` API is available, waits for that exact roll's 3D animation to finish before presenting the next stage. Other players' animation timing may differ from the roller's. A 2.5-second native-message detection limit and a 30-second animation timeout keep unexpected API failures from indefinitely freezing combat; in that exceptional case the card may still advance before the visual effect. This does not introduce any custom dice resolution.
+
 
 ## Installation
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** [https://github.com/rebsiot/combat-workflow/raw/refs/heads/main/releases/stl-combat-workflow-v0.1.3.zip](https://github.com/rebsiot/combat-workflow/releases/download/v0.1.3/stl-combat-workflow-v0.1.3.zip)
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.4/stl-combat-workflow-v0.1.4.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -101,11 +102,11 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.3 to v0.1.2, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.2 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice-roll ChatMessages remain in the world; new v0.1.3 transitions intentionally delete the previous Combat Workflow-only card. Existing workflow cards are not mass-migrated or removed.
+To roll back v0.1.4 to v0.1.3, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.3 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
-- v0.1.3: Node mock contract checks for native ChatMessage ordering, Dice So Nice completion, stage-by-stage workflow-card replacement and protected Apply/Undo. Live Foundry verification of the new timing/order behavior remains pending. The user reported a full basic five-roll sequence and GM Undo working in v0.1.2.
+- v0.1.3: PASS under Node mocks for native roll-message matching and waiting, Dice So Nice completion, single newest workflow card, normal attack/damage/soak resolution and guarded health Apply/Undo. `node --check` and manifest JSON validation passed. **Live Dice So Nice/Foundry v14 timing and multiplayer verification not yet run.** User supplied a live v0.1.2 screenshot confirming the prior basic flow and health Undo works.
 
 - v0.1.2: CSS contrast checks PASS (default 10.68:1; hover/focus 7.63:1; disabled 6.72:1), all styles scoped to module chat card. User screenshot confirmed v0.1.1 card rendered in Foundry, but v0.1.2 contrast is not yet tested live.
 
@@ -121,3 +122,17 @@ To roll back v0.1.3 to v0.1.2, disable the module, stop Foundry, restore your ba
 - WoD20 system: https://github.com/JohanFalt/Foundry_WoD20
 - Foundry v14 scene controls: https://foundryvtt.com/api/functions/hookEvents.getSceneControlButtons.html
 - Foundry v14 dialogs: https://foundryvtt.com/api/classes/foundry.applications.api.DialogV2.html
+
+### Combat result banner and sheet icon (v0.1.4)
+
+Once a result is known, a high-contrast colored status banner shows **MISSED!** (or **DODGED!**, **BLOCKED!**, **PARRIED!** when a defense cancels the attack), **NO DAMAGE** if no health levels remain after soak, or **N LETHAL/BASHING/AGGRAVATED DAMAGE**. Finalized outcomes distinguish applied, unapplied and undone damage in their subtitle; the underlying roll totals are unchanged. The card remains newest in chat as in v0.1.3.
+
+The character-sheet Combat shortcut now displays the crossed-swords silhouette from WoD20's native `assets/img/items/meleeweapons.svg` (white glyph only), retaining the original 30px button, splat color and position immediately below Dodge. No other button module or game system files are changed.
+
+Roll back to v0.1.3 by restoring its archived module directory after backing up the current module; any health changes from combat must be reviewed separately. Existing chat cards retain their historical content; new outcome banners appear on cards created or advanced by v0.1.4.
+
+### Health label and Undo consistency (v0.1.4)
+
+WoD20 persists the health condition (`system.health.damage.woundlevel`), the roll penalty (`system.health.damage.woundpenalty`), and the remaining health (`system.traits.health.totalhealthlevels`) separately from bashing/lethal/aggravated counts. v0.1.4 calculates these using the native ordered wound-level track and writes them in the **same Actor update** as the damage change. This affects both GM **Apply to Health** and **Undo Damage**. Undoing a strike that took a character from Wounded to Incapacitated should restore Wounded, including the corresponding wound penalty and remaining health. If the Actor has configured chimerical wounds, their separate track is preserved and the more severe state continues to display. Missing/invalid WoD20 health track blocks the change rather than guessing a condition.
+
+The GM Undo guard against intervening damage remains intact, and this patch does not retroactively repair stale health states from earlier module versions. Review any affected Actor manually. The **DAMAGE UNDONE** banner describes reversal of this workflow's damage, not healing from other sources.

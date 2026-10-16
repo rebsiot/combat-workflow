@@ -4,7 +4,11 @@ const vm = require('vm');
 const assert = require('assert');
 const src = fs.readFileSync(require('path').join(__dirname, '../scripts/combat-workflow.js'), 'utf8');
 const actorA = {documentName:'Actor',name:'Attacker', system:{settings:{splat:'mage'}, attributes:{dexterity:{total:3},strength:{total:2}}, health:{damage:{woundpenalty:0}}}, items:{get:()=>null,find:()=>null,filter:()=>[]}, testUserPermission:()=>true};
-const actorB = {documentName:'Actor',name:'Defender', system:{health:{damage:{bashing:0,lethal:0,aggravated:0}}}, items:{get:()=>null}, testUserPermission:()=>true, update:async function(changes){if(changes['system.health.damage'])this.system.health.damage=changes['system.health.damage']; for(const [k,v] of Object.entries(changes)){const m=k.match(/^system\.health\.damage\.(bashing|lethal|aggravated)$/); if(m)this.system.health.damage[m[1]]=v;}}};
+const nativeLevels = {bruised:0,hurt:-1,injured:-1,wounded:-2,mauled:-2,crippled:-5,incapacitated:-99};
+const track = Object.fromEntries(Object.entries(nativeLevels).map(([key,penalty]) => [key,{total:1,label:`wod.health.${key}`,penalty}]));
+const actorB = {documentName:'Actor',name:'Defender',system:{health:{damage:{bashing:0,lethal:0,aggravated:0,woundlevel:'',woundpenalty:0},...track}, traits:{health:{totalhealthlevels:{max:7,value:7}}}},items:{get:()=>null},testUserPermission:()=>true,
+  update:async function(changes){for(const [key,value] of Object.entries(changes)){const segments=key.split('.');let object=this;while(segments.length>1)object=object[segments.shift()];object[segments[0]]=value;}}
+};
 const docs = {'a':actorA,'b':actorB};
 const saved = new Map();
 let created=1;
@@ -22,7 +26,7 @@ saved.set('m1',mockMessage);
 const context = vm.createContext({
   console, Math, Number, String, Promise,
   Hooks:{once:()=>{},on:()=>{}},
-  CONFIG:{worldofdarkness:{successesToDamageRolls:true,woundLevels:{bruised:true}}},
+  CONFIG:{worldofdarkness:{successesToDamageRolls:true,woundLevels:Object.fromEntries(Object.keys(nativeLevels).map(x=>[x,true]))}},
   game:{system:{id:'worldofdarkness'},user:{id:'gm',isGM:true},users:{get:(id)=>({id,isGM:id==='gm',active:true}),filter:()=>[{id:'gm',isGM:true,active:true}]},messages:{get:id=>saved.get(id)}},
   fromUuid:async id=>docs[id] || null,
   foundry:{utils:{deepClone:obj=>structuredClone(obj)}},
@@ -50,6 +54,9 @@ assert.ok(evaluate('card({stage:"defense",attackerName:"A",targetName:"B",weapon
   await evaluate('acceptAdvance({messageId:"m1",step:"apply",userId:"gm"})');
   assert.strictEqual(mockMessage.getFlag('stl-combat-workflow','combat').stage,'done');
   assert.strictEqual(actorB.system.health.damage.bashing,2);
+  assert.strictEqual(actorB.system.health.damage.woundlevel,'wod.health.hurt');
+  assert.strictEqual(actorB.system.health.damage.woundpenalty,-1);
+  assert.strictEqual(actorB.system.traits.health.totalhealthlevels.value,5);
   assert.strictEqual(saved.size,1,'old workflow cards removed on advancement');
   let rejected = false;
   try {await evaluate('acceptAdvance({messageId:"m1",step:"apply",userId:"gm"})');} catch(e) {rejected=true;}
@@ -57,7 +64,29 @@ assert.ok(evaluate('card({stage:"defense",attackerName:"A",targetName:"B",weapon
   assert.strictEqual(actorB.system.health.damage.bashing,2);
   await evaluate('acceptAdvance({messageId:"m1",step:"undo",userId:"gm"})');
   assert.strictEqual(actorB.system.health.damage.bashing,0);
+  assert.strictEqual(actorB.system.health.damage.woundlevel,'');
+  assert.strictEqual(actorB.system.health.damage.woundpenalty,0);
+  assert.strictEqual(actorB.system.traits.health.totalhealthlevels.value,7);
   assert.strictEqual(mockMessage.getFlag('stl-combat-workflow','combat').undo,null);
+  // Reproduce reported defect: three wounds take Wounded (four) to Incapacitated (seven).
+  Object.assign(actorB.system.health.damage,{bashing:4,lethal:0,aggravated:0,woundlevel:'wod.health.wounded',woundpenalty:-2});
+  actorB.system.traits.health.totalhealthlevels.value=3;
+  mockMessage.flags['stl-combat-workflow'].combat={...mockMessage.getFlag('stl-combat-workflow','combat'),stage:'resolved',finalDamage:3,damageType:'lethal',note:'',undo:null};
+  await evaluate('acceptAdvance({messageId:"m1",step:"apply",userId:"gm"})');
+  assert.strictEqual(actorB.system.health.damage.lethal,3);
+  assert.strictEqual(actorB.system.health.damage.woundlevel,'wod.health.incapacitated');
+  assert.strictEqual(actorB.system.health.damage.woundpenalty,-99);
+  assert.strictEqual(actorB.system.traits.health.totalhealthlevels.value,0);
+  await evaluate('acceptAdvance({messageId:"m1",step:"undo",userId:"gm"})');
+  assert.strictEqual(actorB.system.health.damage.bashing,4);
+  assert.strictEqual(actorB.system.health.damage.lethal,0);
+  assert.strictEqual(actorB.system.health.damage.woundlevel,'wod.health.wounded');
+  assert.strictEqual(actorB.system.health.damage.woundpenalty,-2);
+  assert.strictEqual(actorB.system.traits.health.totalhealthlevels.value,3);
+  // Chimerical wound count remains independent and affects the display when worse.
+  actorB.system.health.damage.chimerical={bashing:6,lethal:0,aggravated:0};
+  context.__actor=actorB;
+  assert.strictEqual(evaluate('nativeHealthFields(__actor,{bashing:0,lethal:0,aggravated:0,chimerical:__actor.system.health.damage.chimerical})["system.health.damage.woundlevel"]'),'wod.health.crippled');
   actorB.system.settings={splat:'vampire'};
   const firearm = {type:'Ranged Weapon',system:{attack:{ability:'firearms'},damage:{type:'lethal'}}};
   context.firearm=firearm;
