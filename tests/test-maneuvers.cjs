@@ -17,7 +17,7 @@ const target={id:'t',uuid:'Actor.t',documentName:'Actor',name:'Defender',type:'P
  api:{getAbility:()=>({system:{value:2}})},items:{get:()=>null,find:()=>null,filter:()=>[]},testUserPermission:()=>true};
 const tokens={attacker:{actor,name:'Attacker',document:{uuid:'Scene.Token.a'}},
  defender:{actor:target,name:'Defender',document:{uuid:'Scene.Token.t'}}};
-const warning=[],emitted=[],rolls=[];let choice={};
+const warning=[],emitted=[],rolls=[],prompts=[];let choice={};
 const ctx=vm.createContext({console,Math,Number,String,Promise,setTimeout,clearTimeout,
  Hooks:{on(){},once(){}},queueMicrotask:f=>f(),
  document:{addEventListener(){}},canvas:{tokens:{controlled:[]}},
@@ -38,7 +38,7 @@ const ctx=vm.createContext({console,Math,Number,String,Promise,setTimeout,clearT
    messages.set(msg.id,msg);return msg;
  }},
  foundry:{utils:{deepClone:x=>structuredClone(x),randomID:()=> 'nonce'},
-   applications:{api:{DialogV2:{input:async()=>choice}}}}
+   applications:{api:{DialogV2:{input:async input=>{prompts.push(input);return choice;}}}}}
 });
 vm.runInContext(code,ctx);
 const run=(source,fields={})=>vm.runInContext(source,Object.assign(ctx,fields));
@@ -58,10 +58,17 @@ const last=()=>[...messages.values()].at(-1);
   assert.throws(()=>run('validCombo({count:3,index:1,pools:[3,0,2]})'),/Invalid/);
   run('DiceRollContainer=class {constructor(actor){this.actor=actor;}}');
   run('DiceRoller=async roll=>{rolls.push({pool:roll.numDices,difficulty:roll.difficulty,action:roll.action});return 3;}',{rolls});
-  const openChoice={weapon:'gun',maneuver:'strike',difficulty:'0',modifier:'0',damageOverride:'',attacks:'1',fireMode:'burst'};
+  const soakCard=run('card(st)',{st:{stage:'soak',attackerName:'Attacker',targetName:'Defender',
+    weaponName:'SMG',damageType:'lethal',attackSuccesses:3,netSuccesses:2,
+    damage:{successes:2},soak:null}});
+  assert.match(soakCard,/>No Soak<\/button>/);
+  assert.match(soakCard,/title="Cannot or choose not to soak"/);
+  assert.doesNotMatch(soakCard,/Cannot \/ Won/);
+  const openChoice={weapon:'gun',difficulty:'0',modifier:'0',damageOverride:'',attacks:'1',fireMode:'burst'};
   choice=openChoice;
   await run('open({attackerActor:actor})',{actor});
   assert.equal(rolls.at(-1).pool,9);
+  assert.doesNotMatch(prompts.at(-1).content,/name="maneuver"|Grapple \/ Hold/,'Standard attack must not expose grapple');
   assert.equal(rolls.at(-1).difficulty,7);
   assert.equal(gun.system.clip.value,9);
   assert.equal(emitted.at(-1).firingMode,'burst');
@@ -82,10 +89,16 @@ const last=()=>[...messages.values()].at(-1);
   choice={...openChoice,fireMode:'burst',attacks:'2'};
   await run('open({attackerActor:actor})',{actor});
   assert.match(warning.at(-1),/cannot be combined/);
-  choice={...openChoice,maneuver:'hold',weapon:'',fireMode:'single',attacks:'1'};
-  await run('open({attackerActor:actor})',{actor});
+  choice={pool:'6',difficulty:'6'};
+  await run('openGrapple({attackerActor:actor})',{actor});
   assert.equal(rolls.at(-1).pool,6,'Strength 4 + Brawl 2');
   assert.equal(emitted.at(-1).maneuver,'hold');
+  assert.match(prompts.at(-1).window.title,/Grapple/);
+  assert.match(prompts.at(-1).content,/Strength \+ Brawl/);
+  assert.doesNotMatch(prompts.at(-1).content,/name="weapon"|name="fireMode"|name="attacks"|name="damageOverride"|name="maneuver"/,
+    'Grapple dialog must only show the contested Strength + Brawl roll');
+  assert.equal(prompts.at(-1).ok.label,'Roll Grapple');
+  assert.equal(run('game.stlCombatWorkflow?.openGrapple ?? undefined') == null,true,'mock ready hook has not executed');
   // Exercise authoritative stage machine with a GM mock, no Actor mutation.
   ctx.game.user={id:'gm',isGM:true,targets:new Set([tokens.defender])};
   await run('acceptStart(p)',{p:{attackerUuid:'Actor.a',targetUuid:'Actor.t',userId:'gm',successes:4,maneuver:'hold'}});
@@ -120,5 +133,5 @@ const last=()=>[...messages.values()].at(-1);
   assert.equal(state(msg).combo.index,2);
   assert.equal(state(msg).stage,'defense');
   await assert.rejects(run('acceptContinue(p)',{p:{messageId:first.id,userId:'gm',index:2,targetUuid:'Actor.t',successes:2}}),/cannot be continued/);
-  console.log('PASS: native ranged modes/ammo; M20/V20 split attack; grapple hold/resist/escape/release; sequential chat state');
+  console.log('PASS: distinct Grapple dialog, native ranged modes/ammo, split attack, hold/resist/escape/release, chat state');
 })().catch(e=>{console.error(e);process.exitCode=1;});

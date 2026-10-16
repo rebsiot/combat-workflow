@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.2.0. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.2.1. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -268,7 +268,7 @@ function card(state, actingUser = null) {
   }
   if (state.stage === "soak") {
     body += `<div class="stl-combat-actions">`;
-    body += button("Roll Soak", "soak") + button("Cannot / Won't Soak", "no-soak") + `</div>`;
+    body += button("Roll Soak", "soak") + button("No Soak", "no-soak", 'title="Cannot or choose not to soak"') + `</div>`;
   }
   body += resultBanner(state);
   if (state.stage === "resolved" || state.stage === "applying" || state.stage === "done") {
@@ -609,27 +609,30 @@ async function promptFields(title, fields, confirmText = "Roll") {
     window:{title}, content, ok:{label:confirmText}, rejectClose:false, modal:true
   });
 }
-async function open({attackerActor = null, attackerToken = null} = {}) {
-  if (!DiceRoller) return notify("WoD20 dice functions unavailable.");
+function attackContext({attackerActor = null, attackerToken = null} = {}) {
+  if (!DiceRoller) { notify("WoD20 dice functions unavailable."); return null; }
   // Sheet buttons supply an Actor; a token's right-click HUD supplies its
   // TokenDocument. A bare open() still supports a single controlled token.
   const tokenDoc = attackerToken?.document ?? attackerToken;
   const selected = attackerActor || tokenDoc ? [] : (canvas.tokens?.controlled ?? []);
-  if (!attackerActor && !tokenDoc && selected.length !== 1) return notify("Select exactly one attacking token.");
+  if (!attackerActor && !tokenDoc && selected.length !== 1) { notify("Select exactly one attacking token."); return null; }
   const attacker = attackerActor ?? tokenDoc?.actor ?? selected[0]?.actor;
-  if (!attacker || !mayUse(game.user.id, attacker)) return notify("You do not control this Actor.");
+  if (!attacker || !mayUse(game.user.id, attacker)) { notify("You do not control this Actor."); return null; }
   const attackerUuid = attackerActor?.uuid ?? tokenDoc?.uuid ?? selected[0]?.document?.uuid;
-  if (!attackerUuid) return notify("Cannot identify the attacking Actor.");
+  if (!attackerUuid) { notify("Cannot identify the attacking Actor."); return null; }
   const targets = [...game.user.targets];
-  if (targets.length !== 1) return notify("Target exactly one defending token.");
+  if (targets.length !== 1) { notify("Target exactly one defending token."); return null; }
   const target = targets[0];
-  if (!target?.actor) return notify("Target has no Actor.");
-  if (!activeGM()) return notify("A GM must be online to coordinate combat.");
+  if (!target?.actor) { notify("Target has no Actor."); return null; }
+  if (!activeGM()) { notify("A GM must be online to coordinate combat."); return null; }
+  return {attacker,attackerUuid,target};
+}
+async function open({attackerActor = null, attackerToken = null} = {}) {
+  const context = attackContext({attackerActor, attackerToken});
+  if (!context) return;
+  const {attacker, attackerUuid, target} = context;
   const weapons = weaponList(attacker);
   const fields = [
-    {name:"maneuver",label:"Maneuver",type:"select",options:[
-      {value:"strike",label:"Standard attack"}, {value:"hold",label:"Grapple / Hold (Strength + Brawl)"}
-    ]},
     {name:"weapon",label:"Weapon",type:"select",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
     {name:"difficulty",label:"Attack difficulty (0 = native default)",value:0,min:0,max:10},
     {name:"modifier",label:"Additional attack dice (+/-)",value:0,min:-50,max:50},
@@ -644,19 +647,14 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   }
   const choice = await promptFields(`${attacker.name}: Attack ${target.name}`,fields,"Roll Attack");
   if (!choice) return;
-  const maneuver=choice.maneuver==="hold"?"hold":"strike";
-  const item = maneuver==="hold" ? null : (choice.weapon ? attacker.items.get(choice.weapon) : null);
-  if (maneuver==="strike" && choice.weapon && !item) return notify("Weapon no longer exists.");
+  const item = choice.weapon ? attacker.items.get(choice.weapon) : null;
+  if (choice.weapon && !item) return notify("Weapon no longer exists.");
   const count=clamp(choice.attacks||1,1,4);
   const mode=choice.fireMode||"single";
-  if (maneuver==="hold" && count!==1) return notify("A Grapple/Hold is one contested action. Use a single action.");
-  if (maneuver==="hold" && mode!=="single") return notify("Grapples cannot use firing modes.");
   if (count>1 && mode!=="single") return notify("Burst/full-auto and split multiple actions cannot be combined here.");
-  if (maneuver==="strike" && !supportsFireMode(item,mode)) return notify("That weapon does not support the selected firing mode.");
+  if (!supportsFireMode(item,mode)) return notify("That weapon does not support the selected firing mode.");
   const spec=FIRE_MODES[mode]??FIRE_MODES.single;
-  const stats=maneuver==="hold"
-    ? {attribute:"strength",ability:"brawl",pool:attributeValue(attacker,"strength")+abilityValue(attacker,"brawl"),difficulty:6}
-    : attackData(attacker,item);
+  const stats=attackData(attacker,item);
   const difficulty=choice.difficulty==="0"||choice.difficulty===0||choice.difficulty==null
     ? clamp(stats.difficulty+spec.difficulty,2,10) : clamp(choice.difficulty,2,10);
   const modifier=clamp(choice.modifier,-50,50);
@@ -666,7 +664,7 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   const ammo=ammunitionUse(item,mode);
   if (!ammo.valid) return notify(`${item.name}: firing mode ${mode} needs ${ammo.required} rounds; ${ammo.left} loaded.`);
   const success=await nativeRoll(attacker,{
-    origin:"attack",action:maneuver==="hold"?"Grapple / Hold":`${item?.name||"Unarmed Strike"} attack`,
+    origin:"attack",action:`${item?.name||"Unarmed Strike"} attack`,
     attribute:stats.attribute,ability:stats.ability,
     pool:split?split[0]:pool,difficulty,bonus:modifier,
     extraInfo:[`Target: ${target.name}`,
@@ -676,9 +674,32 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   if (ammo.spend && !await spendAmmunition(item,mode)) return notify("Ammo changed before expenditure; ask the GM to review this roll.");
   send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
     targetUuid:target.document.uuid,weaponId:item?.id||null,successes:success,
-    damageOverride:choice.damageOverride,maneuver,firingMode:mode,attackDifficulty:difficulty,
+    damageOverride:choice.damageOverride,maneuver:"strike",firingMode:mode,attackDifficulty:difficulty,
     combo:split?{index:1,count,pools:split,continued:false}:null});
 
+}
+// Grapple is a distinct action: never display weapons, ammo, attack splitting,
+// damage type, or ranged firing modes in the initial grapple prompt.
+async function openGrapple({attackerActor = null, attackerToken = null} = {}) {
+  const context = attackContext({attackerActor, attackerToken});
+  if (!context) return;
+  const {attacker, attackerUuid, target} = context;
+  const base = Math.max(0, attributeValue(attacker, "strength") + abilityValue(attacker, "brawl"));
+  const choice = await promptFields(`${attacker.name}: Grapple ${target.name}`, [
+    {name:"pool",label:"Strength + Brawl dice",value:base,min:0,max:100},
+    {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
+  ], "Roll Grapple");
+  if (!choice) return;
+  const pool = clamp(choice.pool ?? base, 0, 100);
+  const difficulty = clamp(choice.difficulty ?? 6, 2, 10);
+  const successes = await nativeRoll(attacker, {
+    origin:"attack",action:"Grapple / Hold",
+    attribute:"strength",ability:"brawl",pool,difficulty,
+    extraInfo:[`Target: ${target.name}`, "Grapple: opposed Strength + Brawl"]
+  });
+  send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
+    targetUuid:target.document.uuid,weaponId:null,successes,
+    maneuver:"hold",firingMode:"single",attackDifficulty:difficulty,combo:null});
 }
 async function clickAction(event) {
   const element = event.target.closest?.(BUTTON);
@@ -870,7 +891,7 @@ Hooks.once("ready", async () => {
     console.error(`${MODULE} | WoD20 native API missing`, error);
     return notify("STL Combat Workflow cannot load WoD20 native APIs.", "error");
   }
-  const api = Object.freeze({open});
+  const api = Object.freeze({open,openGrapple});
   game.modules.get(MODULE).api = api;
   game.stlCombatWorkflow = api;
   game.socket.on(CHANNEL, payload => void authoritative(payload));
@@ -895,6 +916,7 @@ async function launchTokenAction(action, tokenDoc) {
     return notify("You do not control this token's Actor.");
   }
   if (action === "combat") return open({attackerToken: tokenDoc});
+  if (action === "grapple") return openGrapple({attackerToken: tokenDoc});
   if (action === "magick") {
     const magick = magickPanelAPI();
     if (!magick) return notify("Enable WoD20 Player Actions to use Magick.");
@@ -917,8 +939,8 @@ function addTokenHudActionsButton(hud, root) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "stl-token-actions-button";
-  button.title = "Actions — Combat & Magick";
-  button.setAttribute("aria-label", "Actions — Combat & Magick");
+  button.title = "Actions — Attack, Grapple & Magick";
+  button.setAttribute("aria-label", "Actions — Attack, Grapple & Magick");
   button.setAttribute("data-tooltip", "Actions");
   button.setAttribute("aria-haspopup", "true");
   button.setAttribute("aria-expanded", "false");
@@ -950,7 +972,8 @@ function addTokenHudActionsButton(hud, root) {
     });
     menu.appendChild(item);
   };
-  addAction("Combat", "fa-solid fa-swords", "combat");
+  addAction("Attack", "fa-solid fa-crosshairs", "combat");
+  addAction("Grapple", "fa-solid fa-hand-fist", "grapple");
   if (magickPanelAPI()) addAction("Magick", "fa-solid fa-wand-magic-sparkles", "magick");
 
   button.addEventListener("click", event => {

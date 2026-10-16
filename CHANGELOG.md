@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.1 — 2026-10-16 — Separate Grapple UI and compact soak choice
+
+- Separated **Grapple** from the main Attack dialog. Grapple has its own HUD Actions flyout item and a minimal Strength + Brawl / Difficulty dialog; weapon/ammo/damage/split options remain exclusively in **Attack**.
+- Kept the existing Hold/Resist/Escape/Release state machine and normal attack combat sequence unchanged. Character-sheet Combat launcher continues to open Attack; published an additive `api.openGrapple()` entry point.
+- Renamed the defender's chat action button **Cannot / Won't Soak** to **No Soak** while preserving its `no-soak` action and adding an explanatory tooltip.
+- Added/updated Node mock tests. No Actor or Scene migrations; no Player Actions or WoD20 system changes. Live Foundry browser testing pending.
+
+
 ## v0.2.0 — 2026-10-16 — HUD positioning and extended combat maneuvers
 
 - Changed Token HUD grid icon to a lightning bolt; anchored compact Combat/Magick flyout to its button and constrained it to the visible viewport.

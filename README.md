@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.2.0
+# STL Combat Workflow v0.2.1
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.0 adds field-test extensions for firing modes, split attacks, Hold grapples and HUD anchoring; new branches are mock-tested only and require live Foundry validation.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.1 gives Grapple a separate, minimal entry point and shortens the skip-soak button. The new paths are mock-tested; live Foundry validation remains pending.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -12,7 +12,7 @@
 
 ## Purpose
 
-A guided **single-target, single-attack** M20/V20 combat flow using the WoD20 system's native dice rolls and native health track:
+A guided **single-target attack workflow**, with optional sequential attacks and a separate Grapple/Hold action using the WoD20 system's native dice rolls and native health track:
 
 1. Attacker opens the workflow from their PC sheet or the right-click Token HUD, targets one enemy token, and selects an owned Melee/Ranged Weapon or Unarmed Strike.
 2. Attacker rolls native attack with weapon stats, difficulty and bonus dice; native system rules handle tens, ones, specialty settings and wound penalties.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.0/stl-combat-workflow-v0.2.0.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.1/stl-combat-workflow-v0.2.1.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -51,7 +51,7 @@ To install through Foundry Setup, use **Install Module → Manifest URL** and pa
 - **Target exactly one defender token** using Foundry's normal targeting control; an online GM is required. Clicking Combat opens the weapon/attack dialog and then the sequential Chat workflow.
 - The Dodge button itself remains the independent Dodge module's native single-defense roll; Combat does not replace it.
 
-- **On the canvas:** Right-click an owned token to open Foundry's native **Token HUD**. Click the small grid-style **Actions** icon, then choose **Combat** or **Magick** from the compact flyout. Combat requires one defender already targeted; Magick opens the existing Player Actions *Use Magick* panel for that same token's Actor. The HUD token is used independently of the current selected token.
+- **On the canvas:** Right-click an owned token to open Foundry's native **Token HUD**. Click the lightning-bolt **Actions** icon, then choose **Attack**, **Grapple**, or **Magick** from the compact flyout. Attack and Grapple require one defender already targeted; Magick opens the existing Player Actions *Use Magick* panel for that same token's Actor. The HUD token is used independently of the current selected token.
 - **Removed:** The old shield icon is no longer inserted in the left Token Controls toolbar.
 - **Optional hotbar macro:** You can still create a Script Macro (requires exactly one selected attacker token) with:
 
@@ -103,7 +103,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.2.0 to v0.1.10, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.10 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.2.1 to v0.2.0, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.2.0 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -198,7 +198,21 @@ The always-visible left sidebar shield remains removed. The PC-sheet Combat icon
 **Upgrade:** Back up `Z:\Data\modules\stl-combat-workflow` and test world, install v0.1.10, restart Foundry and hard-refresh all browsers. No data conversion required. **Rollback:** restore v0.1.9 module ZIP; existing workflow health changes and chat history are unaffected by changing the HUD launcher.
 
 
-## v0.2.0 — Extended maneuvers (field test)
+## v0.2.1 — Separate Grapple launcher and compact soak button
+
+The **Actions** flyout now has three entries behind the same single lightning-bolt icon: **Attack**, **Grapple**, and **Magick** (Magick only if Player Actions is available). No new permanent Token HUD controls are introduced.
+
+- **Attack** uses the original weapon attack dialog (weapon, difficulty, attack modifier, damage type, count, optional firing mode), **without** a Grapple maneuver selector.
+- **Grapple** opens a *separate* minimal initial dialog showing only **Strength + Brawl dice** and **Difficulty** (default 6). It runs the existing v0.2.0 opposed Hold / Resist / Escape / Contest / Release workflow, not weapon selection, ammunition, split attacks or damage.
+- The PC-sheet Combat button still opens Attack; the existing macro API `game.stlCombatWorkflow.open()` is unchanged. Integrations can call `game.stlCombatWorkflow.openGrapple()` with one selected token, or `api.openGrapple({attackerActor})` / `api.openGrapple({attackerToken})` with context supplied.
+- The defender's wide **Cannot / Won't Soak** chat button is renamed **No Soak** so it fits on one line. A tooltip retains the full meaning, *Cannot or choose not to soak*. The underlying `no-soak` action is identical.
+- No Actor/Item, weapon, combat dice, health, permission, Paradox or magick logic changes. Existing in-progress grapple chat cards remain supported and need no migration. Historical chat messages are not rewritten.
+
+**Live smoke test:** In a backed-up test world, right-click an owned token with one defender targeted. Actions → Attack should show weapon fields but **not Grapple**. Actions → Grapple should show only Strength + Brawl and Difficulty, then produce the existing opposed grapple card. Separately take a normal hit to the soak step: **Roll Soak** and **No Soak** should fit in their buttons and behave exactly as before. Test as a second player and GM. Rollback to v0.2.0 if necessary.
+
+**Tests:** Node mock checks for independent dialogs, HUD action routing, soak button labeling, native firing modes, split attacks and grapple-state transitions; live Foundry v14 has not yet been tested.
+
+## v0.2.0 — Extended maneuvers (historical v0.2.0 behavior; v0.2.1 separates Grapple)
 
 The standard Attack → Defense → Damage → Soak → optional GM health application remains the default and is unchanged. The attack dialog now has **Maneuver** (Standard / Grapple-Hold), **Number of attacks** (1–4) and, only when an Actor owns a ranged weapon supporting it, a **Firing mode** selector. Special modes have no extra setup dialogs in routine single attacks.
 

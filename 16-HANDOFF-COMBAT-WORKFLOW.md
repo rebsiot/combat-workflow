@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.2.0 experimental field-test
+**Artifact:** `stl-combat-workflow` v0.2.1 experimental field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -137,3 +137,13 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Token HUD Actions lightning bolt with flyout anchored to its button and runtime viewport-clamping/flipping; no additional permanent HUD icons or other module editing. Retains `wod20-player-actions.api.openPanel(actor)` contract.
 - v0.2.0 regression tests include native mode data, ammo consumption, split pool, hold establishment/escape/maintain/release, chat card continuation, HUD anchor and prior health workflow. These are mock/local tests only; live Foundry and two-client exercise required before declaring compatibility.
 - Upgrade: back up `Z:\Data\modules\stl-combat-workflow` and test world, install versioned ZIP, restart/refresh; rollback to v0.1.10. Neither upgrade nor rollback restores completed wound changes. Update this owning handoff; optional `GLOBAL-02` notes for Player Actions consumer already recorded in earlier v0.1.10 changes.
+
+
+## v0.2.1 — Separate Grapple from Attack and shorten skip-soak label
+
+- User found v0.2.0 Grapple option confusing because its initial attack dialog still displayed irrelevant weapon, ammo, damage, firing mode and multiple attack controls. User requested Grapple separate from Standard Attack.
+- The sole Token HUD lightning-bolt flyout now offers **Attack**, **Grapple**, and (when Player Actions is active) **Magick**. No additional permanent HUD icons. Attack launches the existing weapon dialog without the Maneuver select. Grapple launches only Strength + Brawl dice and Difficulty using the same actor/target preflight, native dice and existing `maneuver:hold` state-machine path.
+- Published module API is additive: `openGrapple({attackerActor,attackerToken})`, with default no-arg controlled-token behavior; existing `open` and Player Actions `openPanel(actor)` consumer remain unchanged. PC-sheet attack launcher remains attack-only.
+- Defender's **Cannot / Won't Soak** button relabeled **No Soak** (tooltip explains) without changing its underlying `no-soak` callback, rules, chat stages or permissions.
+- No existing chat flags, Actor health/Items, IDs, migrations, ammo maths or ownership changes. No adjacent modules edited.
+- Regression mocks amended for Attack/Grapple separation, correct token binding, full native modes, split attacks and compact soak button. Live Foundry GM+player smoke test pending. Rollback v0.2.0.
