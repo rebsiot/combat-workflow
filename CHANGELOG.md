@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.3 — 2026-10-15 — Combat pacing and newest active chat card
+
+- Fixed workflow advancing before native roll chat creation or the matching Dice So Nice animation completes.
+- Each completed stage creates its next workflow message at the bottom of the chat, below the native dice result, and removes only the previous workflow card.
+- Native WoD20 dice/chat cards remain untouched. Existing old workflow cards are not mass-migrated.
+- Preserved schema 1, Actor health, GM Apply/Undo safety checks, token/sheet launchers and native dice.
+- Automated mock tests and module syntax checks; new pacing/order awaits live Foundry verification.
+
+
 ## v0.1.2 — 2026-10-15 — Readable combat chat actions
 
 - Fixed nearly-black text on Dodge, Block, Parry, and No Defense buttons in dark Foundry/WoD20 chat themes. The same explicit styles cover Damage, Soak, Apply and Undo actions.

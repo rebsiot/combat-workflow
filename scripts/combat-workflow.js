@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.1.1. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.1.3. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -140,6 +140,24 @@ async function updateMessage(msg, state) {
   if (!STAGES.includes(state.stage)) throw new Error("Invalid combat stage");
   await msg.update({content:card(state), [`flags.${MODULE}.combat`]:state});
 }
+// Move only our workflow card to the bottom after each native roll; never remove
+// native WoD20 roll cards. Preserve the old card if replacement creation fails.
+async function advanceMessage(msg, state) {
+  if (!STAGES.includes(state.stage)) throw new Error("Invalid combat stage");
+  const next = await makeMessage(state);
+  if (!next?.id) throw new Error("Could not create the next Combat Workflow card");
+  try {
+    await msg.delete();
+  } catch (error) {
+    console.warn(`${MODULE} | Could not remove previous workflow card; marking it inactive`, error);
+    const stale = {...msg.getFlag(MODULE, "combat"), supersededBy:next.id};
+    await msg.update({
+      content:'<section class="stl-combat-card"><em>Combat continued in the newest workflow card below.</em></section>',
+      [`flags.${MODULE}.combat`]:stale
+    });
+  }
+  return next;
+}
 async function authoritative(payload) {
   if (!isLeader() || !payload || !["start", "advance"].includes(payload.type)) return;
   const key = payload.type === "start" ? `start:${payload.userId}:${payload.nonce}` : payload.messageId;
@@ -183,7 +201,7 @@ async function acceptAdvance(payload) {
   const msg = game.messages.get(payload.messageId);
   if (!msg) throw new Error("Missing workflow chat message");
   const old = msg.getFlag(MODULE, "combat");
-  if (!old || old.schema !== 1 || !STAGES.includes(old.stage)) throw new Error("Invalid workflow data");
+  if (!old || old.schema !== 1 || !STAGES.includes(old.stage) || old.supersededBy) throw new Error("Invalid or superseded workflow data");
   const s = foundry.utils.deepClone(old);
   const attacker = await getActor(s.attackerUuid);
   const target = await getActor(s.targetUuid);
@@ -239,7 +257,7 @@ async function acceptAdvance(payload) {
     if (s.finalDamage <= 0) {
       s.stage = "done";
       s.note = "No damage to apply.";
-      return await updateMessage(msg, s);
+      return await advanceMessage(msg, s);
     }
     if (!target.system?.health?.damage || typeof CombatHelper?.ApplyDamageWithOverflow !== "function") {
       throw new Error("Health model unsupported: left at APPLYING for manual review");
@@ -256,7 +274,7 @@ async function acceptAdvance(payload) {
   } else {
     throw new Error("Step out of sequence or user does not control the required Actor");
   }
-  await updateMessage(msg, s);
+  await advanceMessage(msg, s);
 }
 function send(payload) {
   const leader = activeGM();
@@ -264,6 +282,48 @@ function send(payload) {
   payload.userId = game.user.id;
   if (isLeader()) return authoritative(payload);
   game.socket.emit(CHANNEL, payload);
+}
+// Bound async waits avoid freezing combat if upstream chat/animation hooks change.
+async function withDeadline(promise, milliseconds, fallback = null) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise(resolve => { timer = setTimeout(() => resolve(fallback), milliseconds); })
+    ]);
+  } finally { clearTimeout(timer); }
+}
+// WoD20 v7.3.1 starts ChatMessage.create without awaiting completion.
+// Watch the matching native dice message before moving our card below it.
+async function awaitNativeRollDisplay(actor, doRoll) {
+  const canObserve = typeof Hooks?.on === "function" && typeof Hooks?.off === "function";
+  let settleMessage;
+  const foundMessage = new Promise(resolve => { settleMessage = resolve; });
+  const onMessage = (message, _options, userId) => {
+    if (userId !== game.user.id || message?.speaker?.actor !== actor?.id) return;
+    if (!message?.rolls?.length) return;
+    settleMessage(message);
+  };
+  if (canObserve) Hooks.on("createChatMessage", onMessage);
+  try {
+    const successes = await doRoll();
+    if (!canObserve) return successes;
+    const nativeMessage = await withDeadline(foundMessage, 2500);
+    const waitForDice = game.modules?.get?.("dice-so-nice")?.active
+      ? game.dice3d?.waitFor3DAnimationByMessageID : null;
+    if (nativeMessage?.id && typeof waitForDice === "function") {
+      try {
+        await withDeadline(
+          Promise.resolve(game.dice3d.waitFor3DAnimationByMessageID(nativeMessage.id)), 30000
+        );
+      } catch (error) {
+        console.warn(`${MODULE} | Dice So Nice completion unavailable; continuing combat`, error);
+      }
+    }
+    return successes;
+  } finally {
+    if (canObserve) Hooks.off("createChatMessage", onMessage);
+  }
 }
 async function nativeRoll(actor, {origin, action, attribute, ability, pool, difficulty, bonus = 0, extraInfo = [], useWillpower = false}) {
   const roll = new DiceRollContainer(actor);
@@ -278,7 +338,7 @@ async function nativeRoll(actor, {origin, action, attribute, ability, pool, diff
   roll.dicetext = [`${action} (${roll.numDices} dice)`];
   roll.extraInfo = extraInfo;
   roll.usewillpower = !!useWillpower;
-  return clamp(await DiceRoller(roll), 0, 100);
+  return clamp(await awaitNativeRollDisplay(actor, () => DiceRoller(roll)), 0, 100);
 }
 async function promptFields(title, fields, confirmText = "Roll") {
   const content = `<div class="stl-combat-prompt">${fields.map(f => {

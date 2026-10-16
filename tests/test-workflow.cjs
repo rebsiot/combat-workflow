@@ -7,14 +7,16 @@ const actorA = {documentName:'Actor',name:'Attacker', system:{settings:{splat:'m
 const actorB = {documentName:'Actor',name:'Defender', system:{health:{damage:{bashing:0,lethal:0,aggravated:0}}}, items:{get:()=>null}, testUserPermission:()=>true, update:async function(changes){if(changes['system.health.damage'])this.system.health.damage=changes['system.health.damage']; for(const [k,v] of Object.entries(changes)){const m=k.match(/^system\.health\.damage\.(bashing|lethal|aggravated)$/); if(m)this.system.health.damage[m[1]]=v;}}};
 const docs = {'a':actorA,'b':actorB};
 const saved = new Map();
-const mockMessage = {
+let created=1;
+let mockMessage = {
   id:'m1', flags:{'stl-combat-workflow':{combat:{
     schema:1, attackerUuid:'a', targetUuid:'b', attackerName:'Attacker', targetName:'Defender',
     weaponName:'Unarmed Strike', weaponId:null, damageType:'bashing',
     attackSuccesses:4, netSuccesses:4, stage:'defense', defense:null, damage:null, soak:null, finalDamage:null
   }}},
   getFlag(ns,key) {return this.flags[ns][key];},
-  async update(values) {this.content=values.content;this.flags['stl-combat-workflow'].combat=values['flags.stl-combat-workflow.combat'];}
+  async update(values) {this.content=values.content;this.flags['stl-combat-workflow'].combat=values['flags.stl-combat-workflow.combat'];},
+  async delete() {saved.delete(this.id);}
 };
 saved.set('m1',mockMessage);
 const context = vm.createContext({
@@ -25,11 +27,14 @@ const context = vm.createContext({
   fromUuid:async id=>docs[id] || null,
   foundry:{utils:{deepClone:obj=>structuredClone(obj)}},
   ui:{notifications:{warn:()=>{}}},
-  ChatMessage:{getSpeaker:()=>({}),create:async()=>{}},
+  ChatMessage:{getSpeaker:()=>({}),create:async(data)=>{
+    const next=Object.assign(Object.create(mockMessage),{id:`m${++created}`,content:data.content,flags:data.flags});
+    saved.set(next.id,next); mockMessage=next; return next;
+  }},
   document:{addEventListener:()=>{}}
 });
 vm.runInContext(src,context);
-const evaluate = code=>vm.runInContext(code,context);
+const evaluate = code=>{context.__msgId=mockMessage.id;return vm.runInContext(code.replace(/messageId:"m1"/g,'messageId:__msgId'),context);};
 assert.strictEqual(evaluate('attackData({system:{attributes:{dexterity:{total:3}}},api:{getAbility:()=>({system:{value:2}})}},null).pool'),5);
 assert.strictEqual(evaluate('defaultDamagePool({system:{attributes:{strength:{total:2}}}},null,4).pool'),5);
 assert.ok(evaluate('card({stage:"defense",attackerName:"A",targetName:"B",weaponName:"C",damageType:"bashing",attackSuccesses:3,defense:null})').includes('data-stl-combat-action="dodge"'));
@@ -45,6 +50,7 @@ assert.ok(evaluate('card({stage:"defense",attackerName:"A",targetName:"B",weapon
   await evaluate('acceptAdvance({messageId:"m1",step:"apply",userId:"gm"})');
   assert.strictEqual(mockMessage.getFlag('stl-combat-workflow','combat').stage,'done');
   assert.strictEqual(actorB.system.health.damage.bashing,2);
+  assert.strictEqual(saved.size,1,'old workflow cards removed on advancement');
   let rejected = false;
   try {await evaluate('acceptAdvance({messageId:"m1",step:"apply",userId:"gm"})');} catch(e) {rejected=true;}
   assert.ok(rejected,'second application must be rejected');

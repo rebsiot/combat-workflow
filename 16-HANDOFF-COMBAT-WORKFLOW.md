@@ -1,8 +1,8 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.2 standalone preview
-**Status:** User screenshot confirms card renders to defense stage on Foundry; automated tests pass; full 2-client and new contrast theme verification still pending
+**Artifact:** `stl-combat-workflow` v0.1.3 standalone field-test
+**Status:** User confirms complete basic combat and GM Undo in v0.1.2; new v0.1.3 chat order and Dice So Nice pacing are mock-tested only
 **Date:** 2026-10-15
 
 ## Agreed intent
@@ -54,3 +54,11 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Added `tests/test-chat-contrast.cjs` (static color ratio checks) to prevent regression. Other tests unchanged.
 - v0.1.1 remains the rollback target. v0.1.2 changes no Actors, flags, schemas, hook contracts, or other module data.
 - Need real live screenshot/check in user's dark Foundry theme after update; two-player workflow still unverified.
+
+## v0.1.3: Newest combat card after native roll and Dice So Nice
+
+- Owning development remains 16.1. User's live v0.1.2 screenshot showed native attack, defense, damage and soak chat cards, but the changing workflow card remained above them and advanced before the 3D dice finished.
+- WoD20 7.3.1 DiceRoller initiates ChatMessage.create without awaiting it. The module now observes createChatMessage for the local actor's native roll, and optionally waits for Dice So Nice's waitFor3DAnimationByMessageID before sending progression.
+- ChatMessage progression posts a fresh workflow card and deletes only the superseded workflow card. No native roll cards are removed. APPLYING stage remains updated in place for once-only health mutation safety.
+- Tests mock chat creation, Dice So Nice completion, workflow replacement and GM Apply/Undo. New live two-player Foundry verification remains necessary.
+- No other module contracts altered. v0.1.2 is the rollback target; deletions of prior workflow chat cards are intentional in v0.1.3 and not restored by rollback.

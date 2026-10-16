@@ -1,4 +1,4 @@
-# STL Combat Workflow v0.1.2
+# STL Combat Workflow v0.1.3
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
 **Status:** Published for personal-use field testing. Automated/mock-tested only; NOT yet verified in live Foundry.
@@ -23,11 +23,17 @@ A guided **single-target, single-attack** M20/V20 combat flow using the WoD20 sy
 
 Every roll is made using WoD20's own `DiceRollContainer` and `DiceRoller`, producing native chat rolls and Dice So Nice integration if installed. This module does not implement an alternative d10 algorithm or modify Paradox.
 
+### Combat chat order and 3D dice timing (v0.1.3)
+
+After the native roll chat message has been created, Combat Workflow waits for the matching Dice So Nice animation to finish when Dice So Nice is enabled. It then posts the **newest active workflow card below the roll** and removes only the previous workflow card. Native WoD20 roll chat messages stay in chronological order above the current buttons. Previously created v0.1.2 workflow cards are not automatically rearranged.
+
+This uses native Foundry `createChatMessage` and the optional Dice So Nice `waitFor3DAnimationByMessageID` API. There is no new dice roller. Timeouts (2.5 seconds for native message creation, 30 seconds for optional animation) prevent indefinitely frozen combat if an integration fails. Different users' animation completion times may differ.
+
 ## Installation
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** [https://github.com/rebsiot/combat-workflow/raw/refs/heads/main/releases/stl-combat-workflow-v0.1.2.zip](https://raw.githubusercontent.com/rebsiot/combat-workflow/main/releases/stl-combat-workflow-v0.1.2.zip)
+**Download ZIP:** [https://github.com/rebsiot/combat-workflow/raw/refs/heads/main/releases/stl-combat-workflow-v0.1.3.zip](https://github.com/rebsiot/combat-workflow/releases/download/v0.1.3/stl-combat-workflow-v0.1.3.zip)
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -95,9 +101,11 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.2 to v0.1.1, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.1 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 rolls and ChatMessages remain in the world; flags are not automatically migrated or deleted.
+To roll back v0.1.3 to v0.1.2, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.2 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice-roll ChatMessages remain in the world; new v0.1.3 transitions intentionally delete the previous Combat Workflow-only card. Existing workflow cards are not mass-migrated or removed.
 
 ## Test summary
+
+- v0.1.3: Node mock contract checks for native ChatMessage ordering, Dice So Nice completion, stage-by-stage workflow-card replacement and protected Apply/Undo. Live Foundry verification of the new timing/order behavior remains pending. The user reported a full basic five-roll sequence and GM Undo working in v0.1.2.
 
 - v0.1.2: CSS contrast checks PASS (default 10.68:1; hover/focus 7.63:1; disabled 6.72:1), all styles scoped to module chat card. User screenshot confirmed v0.1.1 card rendered in Foundry, but v0.1.2 contrast is not yet tested live.
 

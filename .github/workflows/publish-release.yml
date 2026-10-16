@@ -3,7 +3,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'releases/stl-combat-workflow-*.zip'
+      - 'module.json'
+      - 'scripts/**'
+      - 'styles/**'
+      - 'tests/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.github/workflows/publish-release.yml'
 permissions:
   contents: write
 jobs:
@@ -11,7 +17,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Publish versioned release
+      - name: Check module and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/combat-workflow.js
+          node -e "JSON.parse(require('fs').readFileSync('module.json', 'utf8'))"
+          for file in tests/*.cjs; do node "$file"; done
+      - name: Package and publish release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -19,12 +32,14 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./module.json').version")
           tag="v${version}"
-          archive="releases/stl-combat-workflow-${tag}.zip"
-          test -f "$archive"
+          archive="stl-combat-workflow-${tag}.zip"
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists; no overwrite."
+            echo "Release $tag exists, leaving immutable asset unchanged."
             exit 0
           fi
-          gh release create "$tag" "$archive" --target "$GITHUB_SHA" \
-            --title "STL Combat Workflow $tag" \
-            --notes-file CHANGELOG.md
+          mkdir -p build/stl-combat-workflow
+          cp module.json README.md CHANGELOG.md LICENSE 16-HANDOFF-COMBAT-WORKFLOW.md build/stl-combat-workflow/
+          cp -R scripts styles tests build/stl-combat-workflow/
+          ( cd build && zip -q -r "../$archive" stl-combat-workflow )
+          unzip -t "$archive"
+          gh release create "$tag" "$archive" --target "$GITHUB_SHA" --title "STL Combat Workflow $tag" --notes-file CHANGELOG.md
