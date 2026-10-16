@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.0 — 2026-10-16 — HUD positioning and extended combat maneuvers
+
+- Changed Token HUD grid icon to a lightning bolt; anchored compact Combat/Magick flyout to its button and constrained it to the visible viewport.
+- Added native ranged three-round burst (+3 dice/+1 difficulty/3 rounds) and full-auto (+10 dice/+2 difficulty/remaining magazine) for Item modes supported by WoD20 `dialog-weaponv2`. Supports single target; spray remains a native weapon action.
+- Added 2–4 sequential same-weapon attacks using an evenly divided original attack pool. Each has independent defense/damage/soak/health resolution and its own final chat card; guarded next-step and optional retargeting.
+- Added opposed **Grapple / Hold** maneuver and persistent chat-only Held → Escape/Contest → Released workflow with native Strength + Brawl rolls, no automatic grapple status or damage.
+- Preserved ordinary single-attack UX, GM health Apply/Undo and use of existing WoD20 dice; did not modify adjacent Player Actions or Magick modules.
+- New Node mocks for maneuvers, ammo, split actions, old stage behavior and HUD anchoring. **Live Foundry testing pending; this is an experimental personal-use release.**
+
+
 ## v0.1.10 — 2026-10-16 — One HUD Actions flyout (Combat and Magick)
 
 - Replaced the v0.1.9 single-purpose Token HUD attack icon with a distinctive small grid-style **Actions** menu button. The flyout displays two labeled entries, Combat and Magick, beside the native HUD rather than adding a tall column.

@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.1.10 standalone field-test
+**Artifact:** `stl-combat-workflow` v0.2.0 experimental field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -126,3 +126,14 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Player Actions module ID `wod20-player-actions` and public `openPanel(actor)` remain independent. No rolls, Paradox, Resource, health, IDs, flags, import/export data or permissions contracts changed. Existing sheet button below Dodge and optional no-argument macro preserved; persistent left Token Controls shield was already removed in v0.1.9.
 - Native Token HUD flyout is shown only for the acting user with Actor ownership (or GM). Contrast and accessibility for menu items; tiny only when collapsed; menu out-of-flow to avoid stretching Token HUD column. Buttons use dynamic checks, not dead placeholders.
 - Automated Node mocks cover owner/GM visibility, deduplication, menu click, exact TokenDocument/Actor context, Magick API detection and keyboard close. **Live two-client Foundry HUD layout and Magick binding have not yet been tested.** Rollback v0.1.9. Companion Player Actions handoff `05-HANDOFF-UPDATE-0.1.14.md` should note the new *consumer* of `openPanel(actor)`; no code changes required in 05.
+
+
+## v0.2.0 — Extended maneuvers and anchored HUD
+
+- Owning thread 16.1. User approved implementing lightning-bolt HUD/flyout fix, burst/full-auto, split multiple attacks and grappling together. Scope restricted to independent Combat Workflow module; never modify Player Actions (05), Paradox, WoD20 system or other modules.
+- Native source `worldofdarkness/module/dialogs/dialog-weaponv2.js` inspected: ranged `system.mode.hasburst/hasfullauto`, burst +3 dice/+1 difficulty/3 ammo, fullauto +10/+2/min half a clip/remaining ammunition spent. Respect `CONFIG.worldofdarkness.defaultAutoAmmo`. Spray/multi-target gunfire stays native.
+- M20/V20 multiple actions share a lowest-pool divided dice approach. Implements *same-weapon sequential attacks* only, evenly distributed for up to 4; distinct target per Next Attack allowed. No supernatural extra actions or mixed ability allocations. Each attack has separate persistent flagged workflow card; validates continuation and prevents accidental double Next. Ordinary single attack unaffected.
+- Hold grapple: initial Strength+Brawl vs defender Strength+Brawl resistance; persist hold in ChatMessage flags, defender Escape and holder Contest in later permitted actions, holder voluntary Release. Does not apply Active Effects, Actor flags, grapple damage, initiative spending or forced conditions.
+- Token HUD Actions lightning bolt with flyout anchored to its button and runtime viewport-clamping/flipping; no additional permanent HUD icons or other module editing. Retains `wod20-player-actions.api.openPanel(actor)` contract.
+- v0.2.0 regression tests include native mode data, ammo consumption, split pool, hold establishment/escape/maintain/release, chat card continuation, HUD anchor and prior health workflow. These are mock/local tests only; live Foundry and two-client exercise required before declaring compatibility.
+- Upgrade: back up `Z:\Data\modules\stl-combat-workflow` and test world, install versioned ZIP, restart/refresh; rollback to v0.1.10. Neither upgrade nor rollback restores completed wound changes. Update this owning handoff; optional `GLOBAL-02` notes for Player Actions consumer already recorded in earlier v0.1.10 changes.

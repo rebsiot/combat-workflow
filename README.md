@@ -1,7 +1,7 @@
-# STL Combat Workflow v0.1.10
+# STL Combat Workflow v0.2.0
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
-**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. The v0.1.10 compact Actions flyout is mock-tested; live Foundry v14 HUD and two-user verification remain pending.
+**Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.0 adds field-test extensions for firing modes, split attacks, Hold grapples and HUD anchoring; new branches are mock-tested only and require live Foundry validation.
 **System target:** Foundry VTT 14 + `worldofdarkness` / WoD20 7.3.1.
 **Independent module ID:** `stl-combat-workflow`.
 **Optional UI companion:** `wod20-dodge-button` 0.1.0+ (`rebsiot/M20-sheet-buttons`). No changes to or strict dependency on that module.
@@ -34,7 +34,7 @@ The module observes WoD20's native chat-roll creation and, where Dice So Nice is
 
 **Foundry install manifest:** `https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json`
 
-**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.1.10/stl-combat-workflow-v0.1.10.zip
+**Download ZIP:** https://github.com/rebsiot/combat-workflow/releases/download/v0.2.0/stl-combat-workflow-v0.2.0.zip
 
 To install through Foundry Setup, use **Install Module → Manifest URL** and paste the manifest URL above. Otherwise follow the manual instructions below.
 
@@ -78,7 +78,7 @@ As of v0.1.2, the Dodge / Block / Parry / No Defense chat buttons and later Dama
 
 ## Known limitations and decisions pending a real test
 
-- **Single target, single attack only.** Burst/full-auto, spray/multiple targets, split actions, rate of fire, reloading beyond single shots and ammo special cases are not implemented. The normal WoD20 sheet remains available for those cases.
+- **Single defender at a time.** Up to four sequential split attacks are supported, with each attack individually targeted and resolved. Select a new defender before pressing Next Attack; the same equipped weapon and an even split of the original attack pool are used. More complex mixed actions, Celerity/extra actions, suppression/spray, or independent rate-of-fire adjudication remain native WoD20/GM responsibilities.
 - Initiative is left to the existing Foundry combat tracker and native WoD20 initiative control.
 - Combat magic, counters, Powers/Disciplines and Paradox remain owned by their existing modules; the current release covers mundane weapon/unarmed attacks only.
 - Dodge, Block and Parry are always offered; the Storyteller must decide if Block/Parry is legal against a ranged attack or whether a defense has already used the defender's action. The defaults can be overridden in the roll dialog.
@@ -103,7 +103,7 @@ Do **not** declare live compatibility until these pass. Keep the matching world 
 
 ## Upgrade and rollback
 
-To roll back v0.1.10 to v0.1.9, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.9 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
+To roll back v0.2.0 to v0.1.10, disable the module, stop Foundry, restore your backed-up `stl-combat-workflow` folder (or the archived v0.1.10 ZIP), restart, and re-enable. You can also disable Combat Workflow without altering the independent Dodge module. Disabling the module does **not** undo game-play health changes already applied to Actors. Undo a specific action from its Chat card while safe, repair the affected Actor manually, or restore a consistent world snapshot if necessary. Native WoD20 dice rolls remain in the world; new v0.1.3+ combat transitions intentionally remove *only* the previous workflow card as described above. Existing v0.1.2 chat cards are not proactively deleted or migrated.
 
 ## Test summary
 
@@ -196,3 +196,44 @@ The always-visible left sidebar shield remains removed. The PC-sheet Combat icon
 **Live smoke test:** With Player Actions v0.1.14+ enabled, right-click a player-owned Mage token. Click the grid Actions button and confirm the two-item Combat/Magick flyout appears beside the HUD without extending the icon column. Choose Magick and check the correct Mage appears in the existing Use Magick panel. Repeat Combat with one target and verify the correct token attacks. Disable Player Actions temporarily: Actions should offer only Combat. Check non-owner players do not get the launcher for an unowned token; GM can use it. The new HUD behavior is **mock-tested only**, not yet confirmed live.
 
 **Upgrade:** Back up `Z:\Data\modules\stl-combat-workflow` and test world, install v0.1.10, restart Foundry and hard-refresh all browsers. No data conversion required. **Rollback:** restore v0.1.9 module ZIP; existing workflow health changes and chat history are unaffected by changing the HUD launcher.
+
+
+## v0.2.0 — Extended maneuvers (field test)
+
+The standard Attack → Defense → Damage → Soak → optional GM health application remains the default and is unchanged. The attack dialog now has **Maneuver** (Standard / Grapple-Hold), **Number of attacks** (1–4) and, only when an Actor owns a ranged weapon supporting it, a **Firing mode** selector. Special modes have no extra setup dialogs in routine single attacks.
+
+### Burst and full-auto
+
+- Reads native WoD20 Ranged Weapon `system.mode.hasburst` and `hasfullauto` flags. Does not infer automatic capability from weapon names.
+- Three-round burst: +3 attack dice and +1 difficulty; spends 3 rounds when `CONFIG.worldofdarkness.defaultAutoAmmo` is enabled.
+- Full-auto: +10 attack dice and +2 difficulty; uses the native dialog's minimum of at least half a configured magazine and expends the remaining loaded magazine when auto-ammo is enabled. Full-auto is **against a single target** here; spreading fire / spray across targets remains with native WoD20.
+- If a chosen weapon does not support a selected mode, or lacks required ammunition, the attack is canceled before rolling. Each completed roll consumes ammo only once; when native auto-ammo is disabled, the module does not alter clip counts.
+- Do not combine burst/full-auto with split-action attacks through this interface. For unusual suppressive fire or special ammunition, use the native weapon dialog and GM adjudication.
+
+### Sequential split attacks
+
+- Choose 2–4 attacks in the initial dialog. The module divides the **same weapon attack pool** evenly into positive integer pools, with any remainder allocated to earlier attacks (e.g., 8 dice over 3 attacks → 3/3/2). If there are fewer dice than attacks, it refuses to begin.
+- Each attack runs its own defense, damage, soak and health resolution. When an attack is complete or misses, the attacker receives a **Next Attack** button, with a counter. Attacker can target one other defender before clicking it, or leave the current target selected.
+- Previous completed attack cards and native WoD20 roll chat remain; prior Next Attack button is disabled after continuation, preventing an accidental duplicate sequence. Guarded Undo on a prior damage card remains available until later health edits make it unsafe.
+- This implements the M20/V20 common divided-pool approach **for repeated same-weapon attacks only**. It does not attempt different-ability multi-actions, supernatural extra actions, dual-wielding, rate-of-fire exceptions, or a GM-side initiative economy. GM retains authority over legal declarations.
+
+### Grapple / Hold
+
+- Choose **Grapple / Hold** (one action), which uses native Strength + Brawl at difficulty 6 (overridable at roll). The defender chooses **Resist (Strength + Brawl)** or **Do Not Resist**. Net attacker successes establish a persistent Hold card rather than ordinary damage.
+- On a later permitted action the defender chooses **Attempt Escape** (Strength + Brawl), after which the holder uses **Contest Escape** (Strength + Brawl). The defender must exceed holder successes to escape; otherwise the Hold card remains active. The holder may voluntarily **Release Hold** without rolling.
+- The hold persists only as a module ChatMessage flag, not as a condition or status imposed on tokens; it creates no Item, Active Effect, permission change or combat tracker action. GM decides when actions can occur and whether holds affect movement/other action options. **Clinch damage, throws, grappling magick and form-dependent exceptions are not automated** in this version; native system rolls and manual rulings remain available.
+
+### Token HUD improvement
+
+- The single **Actions** icon is now a lightning bolt. The Combat/Magick flyout is anchored to that icon rather than to the top of the whole Token HUD column, vertically clamped within the visible browser viewport, and flipped horizontally when necessary.
+- The flyout remains two items tall and does not expand the native HUD icon column. Player Actions `openPanel(actor)` is still used only when the companion module is enabled.
+
+### First new live tests
+
+1. With a backed-up test world, right-click an owned token near the bottom and near the left edge of the viewport. Confirm the lightning bolt and flyout position beside it, not above the HUD.
+2. Equip a Ranged Weapon with native burst/full-auto flags and clip. Fire a burst, check +3 dice/+1 difficulty/three rounds, then full-auto and check +10 dice/+2 difficulty/ammunition. Test insufficient ammo.
+3. Choose 2 attacks with a 6-dice normal attack. Verify two 3-dice attacks, independent defenses/damage/soak and one Next Attack. Try targeting another defender before the second attack.
+4. Choose Grapple/Hold. Establish an opposed hold, attempt escape, verify the holder rolls, and test both escape and Hold Maintained. Try Release Hold.
+5. Repeat an ordinary melee attack and the existing GM Apply/Undo sequence; verify no regression. Re-test a player-owned NPC and the two-player socket flow.
+
+**Evidence:** Source and native WoD20 firing mode fields inspected. Automated/mock tests cover mode arithmetic, ammo, split pools, grapple state transitions, HUD behavior and regressions. Nothing in v0.2.0 has been live-verified against the user's running Foundry v14 yet. **Upgrade:** Back up world and module, install v0.2.0, restart/refresh. **Rollback:** restore v0.1.10; previous gameplay health changes are not reverted by module rollback.

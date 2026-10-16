@@ -1,11 +1,11 @@
-// STL Combat Workflow 0.1.10. This module delegates all dice rolling to WoD20.
+// STL Combat Workflow 0.2.0. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
 const DODGE_BUTTON = ".macroBtn.wod20-dodge-button";
 const SHEET_BUTTON = ".macroBtn.stl-combat-sheet-button";
 const VALID_DAMAGE = ["bashing", "lethal", "aggravated"];
-const STAGES = ["defense", "damage", "soak", "resolved", "applying", "done", "miss"];
+const STAGES = ["defense", "damage", "soak", "resolved", "applying", "done", "miss", "grapple-defend", "holding", "grapple-counter", "grapple-free"];
 const inFlight = new Set();
 let DiceRollContainer;
 let DiceRoller;
@@ -80,6 +80,52 @@ function attackData(actor, item) {
   const base = attributeValue(actor, key) + abilityValue(actor, ability, custom) + (item ? safeInt(a.accuracy) : 0);
   return {attribute:key, ability, pool:Math.max(0, base), difficulty:clamp(item?.system?.difficulty ?? 6, 2, 10)};
 }
+// Ranged fire modes follow WoD20's native dialog-weaponv2.js settings
+// (burst +3 dice / +1 difficulty; full-auto +10 / +2).
+const FIRE_MODES = Object.freeze({
+  single:{bonus:0,difficulty:0,caption:"Single shot"},
+  burst:{bonus:3,difficulty:1,caption:"Three-round burst"},
+  fullauto:{bonus:10,difficulty:2,caption:"Full automatic"}
+});
+function supportsFireMode(item, mode) {
+  if (mode === "single") return true;
+  return item?.type === "Ranged Weapon" && (
+    (mode === "burst" && !!item.system?.mode?.hasburst) ||
+    (mode === "fullauto" && !!item.system?.mode?.hasfullauto)
+  );
+}
+function availableFireModes(weapons) {
+  const options = [{value:"single",label:"Single shot / normal"}];
+  if (weapons.some(i=>supportsFireMode(i,"burst"))) options.push({value:"burst",label:"Three-round burst (+3 dice, +1 difficulty, 3 rounds)"});
+  if (weapons.some(i=>supportsFireMode(i,"fullauto"))) options.push({value:"fullauto",label:"Full auto (+10 dice, +2 difficulty, expends available clip)"});
+  return options;
+}
+function ammunitionUse(item, mode = "single") {
+  if (item?.type !== "Ranged Weapon" || !item.system?.clip || !CONFIG.worldofdarkness?.defaultAutoAmmo) {
+    return {valid:true,spend:0};
+  }
+  const left = Math.max(0,safeInt(item.system.clip.value));
+  const size = Math.max(0,safeInt(item.system.clip.max));
+  // Native WoD20 full-auto requires at least half of the configured magazine
+  // and expends the remaining loaded rounds. Do not fabricate loaded rounds.
+  const required = mode === "burst" ? 3 : mode === "fullauto" ? Math.max(1,Math.ceil(size/2)) : 1;
+  return {valid:left>=required,spend:mode==="fullauto"?left:required,required,left};
+}
+async function spendAmmunition(item,mode) {
+  const ammo=ammunitionUse(item,mode);
+  if (!ammo.valid) return false;
+  if (ammo.spend > 0) await item.update({"system.clip.value":Math.max(0,ammo.left-ammo.spend)});
+  return true;
+}
+// V20/M20 split actions use the LOWEST declared attack pool, divided between
+// attacks. Same-weapon repeated attacks have the same base pool. Exclude native
+// extra actions (Celerity etc.) because they have a different action economy.
+function splitAttackPool(pool,count) {
+  const dice=Math.max(0,safeInt(pool));
+  const n=clamp(count,1,4);
+  if (dice<n) return null;
+  return Array.from({length:n},(_,i)=>Math.floor(dice/n)+(i<dice%n?1:0));
+}
 function defaultDamagePool(actor, item, netHits) {
   const extra = CONFIG.worldofdarkness?.successesToDamageRolls === false ? 0 : Math.max(0, netHits - 1);
   const damage = item?.system?.damage ?? {};
@@ -134,6 +180,8 @@ function resultBanner(state) {
     const label = defended[state.defense?.choice] ?? "MISSED!";
     return `<div class="stl-combat-result stl-combat-result--miss" role="status"><strong>${esc(label)}</strong><span>Attack avoided — no damage.</span></div>`;
   }
+  if (state.stage === "holding") return '<div class="stl-combat-result stl-combat-result--holding" role="status"><strong>HOLD ESTABLISHED</strong><span>Defender may attempt escape on their next permitted action; holder may release.</span></div>';
+  if (state.stage === "grapple-free") return `<div class="stl-combat-result stl-combat-result--none" role="status"><strong>${esc(state.note || "GRAPPLE ENDED")}</strong><span>No damage from this hold maneuver.</span></div>`;
   if (!["resolved", "applying", "done"].includes(state.stage)) return "";
   const damage = Math.max(0, safeInt(state.finalDamage));
   const isUndone = state.stage === "done" && String(state.note ?? "").startsWith("Damage undone by GM");
@@ -178,17 +226,20 @@ function actingUser(actor) {
   return candidates.find(user => user.active) ?? candidates[0] ?? activeGM() ?? game.user;
 }
 function turnPrompt(state, user = null) {
-  const name = state.stage === "defense" || state.stage === "soak" ? state.targetName
-    : state.stage === "damage" ? state.attackerName
+  const name = ["defense","soak","grapple-defend","holding"].includes(state.stage) ? state.targetName
+    : ["damage","grapple-counter"].includes(state.stage) ? state.attackerName
     : state.stage === "resolved" && safeInt(state.finalDamage) > 0 ? "Storyteller"
     : "";
   if (!name) return "";
-  const prompt = state.stage === "resolved" ? name : `${name} Roll`;
+  const prompt = state.stage === "resolved" ? name : state.stage === "holding" ? `${name} Grappled` : `${name} Roll`;
   return `<div class="stl-combat-turn" role="status" style="${playerTurnStyle(user)}"><strong class="stl-combat-turn-name">${esc(prompt)}</strong></div>`;
 }
 function card(state, actingUser = null) {
   const header = `<div class="stl-combat-header"><strong>Combat Workflow</strong><small> ${esc(state.stage.toUpperCase())} </small></div>`;
   let body = turnPrompt(state, actingUser) + `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
+  if (state.maneuver === "hold") body += '<p class="stl-combat-help">Grapple / Hold • Strength + Brawl</p>';
+  if (state.firingMode && state.firingMode !== "single") body += `<p class="stl-combat-help">Firing mode: ${esc(FIRE_MODES[state.firingMode]?.caption || state.firingMode)}</p>`;
+  if (state.combo) body += `<p class="stl-combat-help">Split attack ${safeInt(state.combo.index)} of ${safeInt(state.combo.count)} • pool ${safeInt(state.combo.pools?.[safeInt(state.combo.index)-1])} dice</p>`;
   body += line("Attack successes", state.attackSuccesses);
   if (state.defense) {
     body += line(`Defense (${state.defense.choice})`, state.defense.successes);
@@ -197,6 +248,15 @@ function card(state, actingUser = null) {
   if (state.damage) body += line("Damage successes", state.damage.successes);
   if (state.soak) body += line(`Soak (${state.soak.choice})`, state.soak.successes);
   if (state.note && state.stage === "resolved") body += `<p class="stl-combat-help">${esc(state.note)}</p>`;
+  if (state.stage === "grapple-defend") {
+    body += '<div class="stl-combat-actions">' + button("Resist (Str + Brawl)","grapple-resist") + button("Do Not Resist","grapple-none") + '</div>';
+  }
+  if (state.stage === "holding") {
+    body += '<div class="stl-combat-actions">' + button("Attempt Escape","grapple-escape") + button("Release Hold","grapple-release") + '</div>';
+  }
+  if (state.stage === "grapple-counter") {
+    body += '<div class="stl-combat-actions">' + button("Contest Escape (Str + Brawl)","grapple-hold") + '</div>';
+  }
   if (state.stage === "defense") {
     body += `<div class="stl-combat-actions">`;
     body += button("Dodge", "dodge") + button("Block", "block") + button("Parry", "parry") + button("No Defense", "none");
@@ -223,13 +283,17 @@ function card(state, actingUser = null) {
       if (state.undo) body += `<div class="stl-combat-actions">${button("Undo Damage", "undo")}</div>`;
     }
   }
+  if (state.combo && ["done","miss"].includes(state.stage) && !state.combo.continued && state.combo.index < state.combo.count) {
+    body += '<div class="stl-combat-actions stl-combat-next">' + button(`Next Attack (${state.combo.index + 1}/${state.combo.count})`,"next-attack") + '</div>';
+    body += '<p class="stl-combat-help">Target a new defender before continuing, or keep the current target.</p>';
+  }
   return `<section class="stl-combat-card" data-stl-combat="true">${header}${body}</section>`;
 }
 async function makeMessage(state) {
   // The message's chat header follows the actor who must act.
   let actor = null;
-  if (state.stage === "defense" || state.stage === "soak") actor = await getActor(state.targetUuid);
-  else if (state.stage === "damage") actor = await getActor(state.attackerUuid);
+  if (["defense","soak","grapple-defend","holding"].includes(state.stage)) actor = await getActor(state.targetUuid);
+  else if (["damage","grapple-counter"].includes(state.stage)) actor = await getActor(state.attackerUuid);
   const chatSpeaker = actor ? speaker(actor) : {alias:"Combat Workflow"};
   const responsibleUser = actor ? actingUser(actor) : (activeGM() ?? game.user);
   return ChatMessage.create({speaker:chatSpeaker, content:card(state, responsibleUser), flags:{[MODULE]:{combat:state}}});
@@ -257,18 +321,69 @@ async function advanceMessage(msg, state) {
   return next;
 }
 async function authoritative(payload) {
-  if (!isLeader() || !payload || !["start", "advance"].includes(payload.type)) return;
+  if (!isLeader() || !payload || !["start", "advance", "continue"].includes(payload.type)) return;
   const key = payload.type === "start" ? `start:${payload.userId}:${payload.nonce}` : payload.messageId;
   if (inFlight.has(key)) return;
   inFlight.add(key);
   try {
     if (payload.type === "start") return await acceptStart(payload);
+    if (payload.type === "continue") return await acceptContinue(payload);
     return await acceptAdvance(payload);
   } catch (e) {
     console.error(`${MODULE} | Combat step rejected`, e);
     // Errors are visible to the GM console; don't leak private actor details to other users.
     notify(`Combat workflow: ${e.message}`);
   } finally { inFlight.delete(key); }
+}
+function validCombo(combo) {
+  if (!combo) return null;
+  const count=safeInt(combo.count);
+  const index=safeInt(combo.index);
+  if (count<2||count>4||index<1||index>count||!Array.isArray(combo.pools)||combo.pools.length!==count) {
+    throw new Error("Invalid multiple-attack allocation");
+  }
+  const pools=combo.pools.map(v=>safeInt(v));
+  if (pools.some(v=>v<1||v>100)) throw new Error("Invalid split dice pool");
+  return {count,index,pools,continued:!!combo.continued};
+}
+async function acceptContinue(payload) {
+  const msg=game.messages.get(payload.messageId);
+  const state=msg?.getFlag(MODULE,"combat");
+  if (!state||!["done","miss"].includes(state.stage)||!state.combo||state.combo.continued||
+      safeInt(state.combo.index)>=safeInt(state.combo.count)) {
+    throw new Error("Previous attack cannot be continued");
+  }
+  const attacker=await getActor(state.attackerUuid);
+  const target=await getActor(payload.targetUuid||state.targetUuid);
+  if (!attacker||!target||!mayUse(payload.userId,attacker)) throw new Error("Cannot continue: attacker, target or permission unavailable");
+  const newIndex=state.combo.index+1;
+  if (safeInt(payload.index)!==newIndex) throw new Error("Out-of-sequence multiple attack");
+  const item=state.weaponId?attacker.items.get(state.weaponId):null;
+  if (state.weaponId&&!item) throw new Error("Weapon removed during multiple attacks");
+  const prior=foundry.utils.deepClone(state);
+  prior.combo.continued=true;
+  await updateMessage(msg,prior);
+  const next=foundry.utils.deepClone(state);
+  next.combo.index=newIndex;
+  next.combo.continued=false;
+  next.targetUuid=payload.targetUuid||state.targetUuid;
+  next.targetName=target.name;
+  next.attackSuccesses=clamp(payload.successes,0,100);
+  next.netSuccesses=next.attackSuccesses;
+  next.defense=null;
+  next.damage=null;
+  next.soak=null;
+  next.finalDamage=null;
+  next.undo=null;
+  next.note="";
+  next.damageType=effectiveDamageType(item,target,next.damageOverride);
+  next.stage=next.attackSuccesses>0?"defense":"miss";
+  try { await makeMessage(next); }
+  catch(error) {
+    prior.combo.continued=false;
+    await updateMessage(msg,prior);
+    throw error;
+  }
 }
 async function acceptStart(payload) {
   const attacker = await getActor(payload.attackerUuid);
@@ -285,13 +400,18 @@ async function acceptStart(payload) {
     attackerName:attacker.name,
     targetName:target.name,
     weaponId:item?.id || null,
-    weaponName:item?.name || "Unarmed Strike",
+    weaponName:payload.maneuver === "hold" ? "Grapple / Hold" : (item?.name || "Unarmed Strike"),
     damageType:effectiveDamageType(item, target, payload.damageOverride),
+    damageOverride:payload.damageOverride||"",
+    maneuver:payload.maneuver === "hold" ? "hold" : "strike",
+    firingMode:supportsFireMode(item,payload.firingMode) ? payload.firingMode : "single",
+    attackDifficulty:clamp(payload.attackDifficulty || 6,2,10),
+    combo:payload.maneuver==="hold"?null:validCombo(payload.combo),
     attackSuccesses:successes,
     netSuccesses:successes,
     defense:null, damage:null, soak:null,
     finalDamage:null, note:"",
-    stage:successes > 0 ? "defense" : "miss"
+    stage:successes > 0 ? (payload.maneuver === "hold" ? "grapple-defend" : "defense") : "miss"
   };
   await makeMessage(state);
 }
@@ -309,7 +429,30 @@ async function acceptAdvance(payload) {
   const isDefender = mayUse(payload.userId, target);
   const user = game.users.get(payload.userId);
   const isGM = !!user?.isGM;
-  if (step === "defense" && s.stage === "defense" && isDefender) {
+  if (step === "grapple-resist" && s.stage === "grapple-defend" && isDefender) {
+    const resisted=payload.choice==="none"?0:clamp(payload.successes,0,100);
+    if (!["roll","none"].includes(payload.choice)) throw new Error("Invalid grapple resistance");
+    s.defense={choice:payload.choice==="roll"?"resist grapple":"none",successes:resisted};
+    s.netSuccesses=Math.max(0,s.attackSuccesses-resisted);
+    s.stage=s.netSuccesses>0?"holding":"grapple-free";
+    s.note=s.stage==="grapple-free"?"HOLD RESISTED":"Hold established: escape requires opposed Strength + Brawl.";
+    s.grapple={escapeSuccesses:null,attempts:0};
+  } else if (step === "grapple-escape" && s.stage === "holding" && isDefender) {
+    s.grapple ||= {escapeSuccesses:null,attempts:0};
+    s.grapple.escapeSuccesses=clamp(payload.successes,0,100);
+    s.grapple.attempts=safeInt(s.grapple.attempts)+1;
+    s.stage="grapple-counter";
+  } else if (step === "grapple-hold" && s.stage === "grapple-counter" && isAttacker) {
+    if (s.grapple?.escapeSuccesses==null) throw new Error("No escape attempt is pending");
+    const holder=clamp(payload.successes,0,100);
+    s.note=s.grapple.escapeSuccesses>holder?"HOLD ESCAPED":"Hold maintained: defender did not exceed holder's successes.";
+    s.stage=s.grapple.escapeSuccesses>holder?"grapple-free":"holding";
+    s.grapple.holderSuccesses=holder;
+    s.grapple.escapeSuccesses=null;
+  } else if (step === "grapple-release" && s.stage === "holding" && isAttacker) {
+    s.stage="grapple-free";
+    s.note="HOLD RELEASED";
+  } else if (step === "defense" && s.stage === "defense" && isDefender) {
     if (!["dodge", "block", "parry", "none"].includes(payload.choice)) throw new Error("Unknown defense");
     const successes = payload.choice === "none" ? 0 : clamp(payload.successes, 0, 100);
     s.defense = {choice:payload.choice, successes};
@@ -483,38 +626,59 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   if (!target?.actor) return notify("Target has no Actor.");
   if (!activeGM()) return notify("A GM must be online to coordinate combat.");
   const weapons = weaponList(attacker);
-  const choice = await promptFields(`${attacker.name}: Attack ${target.name}`, [
-    {name:"weapon", label:"Weapon or maneuver", type:"select", options:[{value:"",label:"Unarmed Strike (Dexterity + Brawl)"},...weapons.map(i => ({value:i.id,label:i.name}))]},
-    {name:"difficulty", label:"Attack difficulty (0 = weapon default)", value:0, min:0, max:10},
-    {name:"modifier", label:"Additional attack dice (+/-)", value:0, min:-50, max:50},
-    {name:"damageOverride", label:"Damage type", type:"select", options:[
-      {value:"",label:"Weapon default (V20 firearm-vampire rule applied)"},
-      {value:"bashing",label:"Bashing"}, {value:"lethal",label:"Lethal"},
-      {value:"aggravated",label:"Aggravated"}
-    ]}
-  ], "Roll Attack");
+  const fields = [
+    {name:"maneuver",label:"Maneuver",type:"select",options:[
+      {value:"strike",label:"Standard attack"}, {value:"hold",label:"Grapple / Hold (Strength + Brawl)"}
+    ]},
+    {name:"weapon",label:"Weapon",type:"select",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
+    {name:"difficulty",label:"Attack difficulty (0 = native default)",value:0,min:0,max:10},
+    {name:"modifier",label:"Additional attack dice (+/-)",value:0,min:-50,max:50},
+    {name:"damageOverride",label:"Damage type",type:"select",options:[
+      {value:"",label:"Weapon default"}, {value:"bashing",label:"Bashing"},
+      {value:"lethal",label:"Lethal"}, {value:"aggravated",label:"Aggravated"}
+    ]},
+    {name:"attacks",label:"Number of attacks (splits attack dice evenly)",type:"select",options:[1,2,3,4].map(n=>({value:String(n),label:String(n)}))}
+  ];
+  if (weapons.some(i=>i.type==="Ranged Weapon" && (i.system?.mode?.hasburst || i.system?.mode?.hasfullauto))) {
+    fields.push({name:"fireMode",label:"Ranged firing mode (available on compatible weapons)",type:"select",options:availableFireModes(weapons)});
+  }
+  const choice = await promptFields(`${attacker.name}: Attack ${target.name}`,fields,"Roll Attack");
   if (!choice) return;
-  const item = choice.weapon ? attacker.items.get(choice.weapon) : null;
-  if (choice.weapon && !item) return notify("Weapon no longer exists.");
-  const stats = attackData(attacker, item);
-  const difficulty = choice.difficulty === "0" || choice.difficulty === 0
-    ? stats.difficulty : clamp(choice.difficulty, 2, 10);
-  const modifier = clamp(choice.modifier, -50, 50);
-  if (item?.type === "Ranged Weapon" && CONFIG.worldofdarkness?.defaultAutoAmmo && item.system?.clip) {
-    const available = safeInt(item.system.clip.value);
-    if (available < 1) return notify(`${item.name}: no ammunition in clip.`);
-  }
-  const success = await nativeRoll(attacker, {
-    origin:"attack", action:`${item?.name || "Unarmed Strike"} attack`,
-    attribute:stats.attribute, ability:stats.ability,
-    pool:Math.max(0, stats.pool + modifier), difficulty,
-    bonus:modifier, extraInfo:[`Target: ${target.name}`]
+  const maneuver=choice.maneuver==="hold"?"hold":"strike";
+  const item = maneuver==="hold" ? null : (choice.weapon ? attacker.items.get(choice.weapon) : null);
+  if (maneuver==="strike" && choice.weapon && !item) return notify("Weapon no longer exists.");
+  const count=clamp(choice.attacks||1,1,4);
+  const mode=choice.fireMode||"single";
+  if (maneuver==="hold" && count!==1) return notify("A Grapple/Hold is one contested action. Use a single action.");
+  if (maneuver==="hold" && mode!=="single") return notify("Grapples cannot use firing modes.");
+  if (count>1 && mode!=="single") return notify("Burst/full-auto and split multiple actions cannot be combined here.");
+  if (maneuver==="strike" && !supportsFireMode(item,mode)) return notify("That weapon does not support the selected firing mode.");
+  const spec=FIRE_MODES[mode]??FIRE_MODES.single;
+  const stats=maneuver==="hold"
+    ? {attribute:"strength",ability:"brawl",pool:attributeValue(attacker,"strength")+abilityValue(attacker,"brawl"),difficulty:6}
+    : attackData(attacker,item);
+  const difficulty=choice.difficulty==="0"||choice.difficulty===0||choice.difficulty==null
+    ? clamp(stats.difficulty+spec.difficulty,2,10) : clamp(choice.difficulty,2,10);
+  const modifier=clamp(choice.modifier,-50,50);
+  const pool=Math.max(0,stats.pool+modifier+spec.bonus);
+  const split=count>1?splitAttackPool(pool,count):null;
+  if (count>1 && !split) return notify(`Cannot divide ${pool} attack dice among ${count} attacks.`);
+  const ammo=ammunitionUse(item,mode);
+  if (!ammo.valid) return notify(`${item.name}: firing mode ${mode} needs ${ammo.required} rounds; ${ammo.left} loaded.`);
+  const success=await nativeRoll(attacker,{
+    origin:"attack",action:maneuver==="hold"?"Grapple / Hold":`${item?.name||"Unarmed Strike"} attack`,
+    attribute:stats.attribute,ability:stats.ability,
+    pool:split?split[0]:pool,difficulty,bonus:modifier,
+    extraInfo:[`Target: ${target.name}`,
+      ...(mode!=="single"?[`Native firing mode: ${spec.caption} (+${spec.bonus} dice, +${spec.difficulty} difficulty)`]:[]),
+      ...(split?[`Split action 1/${count}: pools ${split.join("/")}`]:[])]
   });
-  if (item?.type === "Ranged Weapon" && CONFIG.worldofdarkness?.defaultAutoAmmo && item.system?.clip) {
-    await item.update({"system.clip.value":Math.max(0, safeInt(item.system.clip.value) - 1)});
-  }
-  send({type:"start", nonce:foundry.utils.randomID(), attackerUuid,
-    targetUuid:target.document.uuid, weaponId:item?.id || null, successes:success, damageOverride:choice.damageOverride});
+  if (ammo.spend && !await spendAmmunition(item,mode)) return notify("Ammo changed before expenditure; ask the GM to review this roll.");
+  send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
+    targetUuid:target.document.uuid,weaponId:item?.id||null,successes:success,
+    damageOverride:choice.damageOverride,maneuver,firingMode:mode,attackDifficulty:difficulty,
+    combo:split?{index:1,count,pools:split,continued:false}:null});
+
 }
 async function clickAction(event) {
   const element = event.target.closest?.(BUTTON);
@@ -528,6 +692,52 @@ async function clickAction(event) {
   const defender = await getActor(state.targetUuid);
   if (!actor || !defender) return notify("Combat Actor missing.");
   const action = element.dataset.stlCombatAction;
+  if (action === "next-attack" && state.combo && ["done","miss"].includes(state.stage)) {
+    if (!mayUse(game.user.id,actor)) return notify("Only the attacker can make the next attack.");
+    if (state.combo.continued||state.combo.index>=state.combo.count) return notify("This attack sequence is already complete.");
+    const index=state.combo.index+1;
+    const pool=state.combo.pools[index-1];
+    const item=state.weaponId?actor.items.get(state.weaponId):null;
+    if (state.weaponId&&!item) return notify("The attacker's weapon was removed.");
+    const targets=[...game.user.targets];
+    if (targets.length>1) return notify("Target only one defender for the next attack.");
+    const current=targets.length===1?targets[0]:null;
+    if (current&&!current.actor) return notify("New targeted token has no Actor.");
+    const targetUuid=current?.document?.uuid??state.targetUuid;
+    const targetName=current?.name??state.targetName;
+    const ammo=ammunitionUse(item,"single");
+    if (!ammo.valid) return notify(`${item.name}: no ammunition for another attack.`);
+    const stats=attackData(actor,item);
+    const successes=await nativeRoll(actor,{
+      origin:"attack",action:`${item?.name||"Unarmed Strike"} split attack ${index}/${state.combo.count}`,
+      attribute:stats.attribute,ability:stats.ability,pool,
+      difficulty:clamp(state.attackDifficulty||stats.difficulty,2,10),
+      extraInfo:[`Target: ${targetName}`,`Split action ${index} of ${state.combo.count}: ${pool} dice`]
+    });
+    if (ammo.spend&&!await spendAmmunition(item,"single")) return notify("Ammo changed; ask GM to review attack.");
+    return send({type:"continue",messageId:msg.id,index,targetUuid,successes});
+  }
+  if (["grapple-resist","grapple-none","grapple-escape","grapple-hold","grapple-release"].includes(action)) {
+    const holderAction=["grapple-hold","grapple-release"].includes(action);
+    const contender=holderAction?actor:defender;
+    if (!mayUse(game.user.id,contender)) return notify("Only the acting grappler (or GM) can respond.");
+    if (action==="grapple-release") return send({type:"advance",messageId:msg.id,step:action});
+    if (action==="grapple-none") return send({type:"advance",messageId:msg.id,step:"grapple-resist",choice:"none",successes:0});
+    const base=attributeValue(contender,"strength")+abilityValue(contender,"brawl");
+    const opts=await promptFields(`${contender.name}: ${action.replace("grapple-","")} (Strength + Brawl)`,[
+      {name:"pool",label:"Strength + Brawl dice",value:base,min:0,max:100},
+      {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
+    ]);
+    if (!opts) return;
+    const successes=await nativeRoll(contender,{
+      origin:"attack",action:`Grapple ${action.replace("grapple-","")}`,
+      attribute:"strength",ability:"brawl",pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
+      extraInfo:[`Grapple: ${actor.name} holding ${defender.name}`]
+    });
+    return send({type:"advance",messageId:msg.id,
+      step:action==="grapple-resist"?"grapple-resist":action,
+      ...(action==="grapple-resist"?{choice:"roll"}:{}),successes});
+  }
   if (["dodge", "block", "parry", "none"].includes(action) && state.stage === "defense") {
     if (!mayUse(game.user.id, defender)) return notify("Only the defender (or GM) can defend.");
     if (action === "none") return send({type:"advance", messageId:msg.id, step:"defense", choice:action, successes:0});
@@ -698,19 +908,21 @@ function addTokenHudActionsButton(hud, root) {
   const tokenDoc = hud?.document ?? hud?.object?.document;
   const actor = tokenDoc?.actor;
   if (!tokenDoc?.uuid || !actor || !mayUse(game.user.id, actor)) return false;
-  if (root.querySelector(".stl-token-actions-button")) return false;
+  if (root.querySelector(".stl-token-actions-anchor")) return false;
   const container = root.querySelector(".col.right") ?? root.querySelector(".col.left");
   if (!container) return false;
 
+  const anchor = document.createElement("div");
+  anchor.className = "control-icon stl-token-actions-anchor";
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "control-icon stl-token-actions-button";
+  button.className = "stl-token-actions-button";
   button.title = "Actions — Combat & Magick";
   button.setAttribute("aria-label", "Actions — Combat & Magick");
   button.setAttribute("data-tooltip", "Actions");
   button.setAttribute("aria-haspopup", "true");
   button.setAttribute("aria-expanded", "false");
-  button.innerHTML = '<i class="fa-solid fa-grip" aria-hidden="true"></i>';
+  button.innerHTML = '<i class="fa-solid fa-bolt" aria-hidden="true"></i>';
 
   const menu = document.createElement("div");
   menu.className = "stl-token-actions-menu";
@@ -746,6 +958,14 @@ function addTokenHudActionsButton(hud, root) {
     event.stopPropagation();
     menu.hidden = !menu.hidden;
     button.setAttribute("aria-expanded", String(!menu.hidden));
+    if (!menu.hidden && anchor.getBoundingClientRect && menu.getBoundingClientRect && typeof window !== "undefined") {
+      const rect = anchor.getBoundingClientRect();
+      const panel = menu.getBoundingClientRect();
+      const top = Math.max(6, Math.min(rect.top + rect.height / 2 - panel.height / 2, window.innerHeight - panel.height - 6));
+      menu.style.top = `${top - rect.top}px`;
+      menu.style.transform = "none";
+      menu.classList.toggle("stl-token-actions-menu--flip", rect.left < panel.width + 10);
+    }
   });
   menu.addEventListener("keydown", event => {
     if (event.key === "Escape") {
@@ -757,10 +977,11 @@ function addTokenHudActionsButton(hud, root) {
   // The HUD itself disappears on close; all handlers and the menu go with it.
   menu.addEventListener("click", event => event.stopPropagation());
 
+  anchor.appendChild(button);
+  anchor.appendChild(menu);
   const nativeCombat = container.querySelector?.('button[data-action="combat"]');
-  if (nativeCombat?.insertAdjacentElement) nativeCombat.insertAdjacentElement("afterend", button);
-  else container.appendChild(button);
-  container.appendChild(menu);
+  if (nativeCombat?.insertAdjacentElement) nativeCombat.insertAdjacentElement("afterend", anchor);
+  else container.appendChild(anchor);
   return true;
 }
 Hooks.on("renderTokenHUD", (hud, root) => {
