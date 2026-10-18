@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.5 — 2026-10-18 — Clearer Foundry module name
+
+- Display as **WoD20 Combat Workflow** in Foundry's Module Management list instead of **STL Combat Workflow**.
+- Preserve the installed module ID `stl-combat-workflow`, GitHub repository name, manifests, integration APIs, existing user preferences, and combat behavior.
+- The rename helps identify the add-on among WoD20 modules; enabled/disabled status remains Foundry's per-world setting.
+- No data migration. Automated manifest/regression checks required; live Foundry v14 verification of the new label and v0.2.4 gameplay changes remains pending.
+
+
 ## v0.2.4 — 2026-10-16 — Compact grapple buttons
 
 - Shortened Grapple/Hold response buttons to **Resist / No Resist**, **Escape / Release Hold**, and **Resist Escape**, keeping native Strength + Brawl meanings in tooltips. No action IDs, chat flags, rolls or grapple rules changed.

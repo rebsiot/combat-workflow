@@ -1,4 +1,4 @@
-# STL Combat Workflow v0.2.4
+# WoD20 Combat Workflow v0.2.5
 
 **Owner:** St. Louis v2 conversation `16.1 - Combat Macro`.
 **Status:** Personal-use field testing; the user has verified the basic attack/defend/damage/soak flow in Foundry v14. v0.2.4 makes grapple-response buttons fit narrow chat cards while retaining the v0.2.3 Attack dropdown filter and the independent Grapple workflow. New layout tests are mock/static only; live Foundry verification remains pending.

@@ -1,7 +1,7 @@
 # 16 - Combat Workflow handoff
 
 **Owning chat:** 16.1 - Combat Macro
-**Artifact:** `stl-combat-workflow` v0.2.4 experimental field-test
+**Artifact:** `stl-combat-workflow` v0.2.5 experimental field-test
 **Status:** User v0.1.2 screenshot confirms attack, defense, damage, soak and GM Undo in Foundry; v0.1.3 roll timing and moving card are mock-tested only; two-client verification pending
 **Date:** 2026-10-15
 
@@ -171,3 +171,13 @@ Use the nine-step plan in `README.md`; the first high-value test is a two-client
 - Only the ChatMessage card button labels/layout change: initial Grapple defense **Resist** / **No Resist**, holding **Escape** / **Release Hold**, escape counter **Resist Escape**. Each retains its existing `data-stl-combat-action` key, WoD20 native dice behavior, GM coordination and state machine; tooltips explain the longer Strength + Brawl text. No actor, Item, health, flag or schema mutation.
 - Added `.stl-combat-actions--paired` to paired Grapple button groups, with locally scoped two-column CSS grid and single-line typography. Other combat button groups and Foundry/other modules' buttons are unchanged.
 - Node mock/static test checks chat labels, tooltips, CSS selectors and preservation of earlier weapon dropdown filtering. Live Foundry chat-column verification pending. Backup module/world before upgrade; restore v0.2.3 for rollback. No shared API or global data contract changes.
+
+
+## v0.2.5 — Foundry display name only (2026-10-18)
+
+- User explicitly approved changing only the Foundry display name to **WoD20 Combat Workflow**. The GitHub repository remains `rebsiot/combat-workflow`; module ID stays `stl-combat-workflow` and folder is unchanged. No reinstallation under a different ID or duplicate module is needed.
+- Source of truth verified before edit: GitHub `v0.2.4`, commit `4b803d5320b40f24301413ee33c30cf062102e56` on `main`, module manifest v0.2.4 and published complete ZIP. Installed live module version and exact installed WoD20 version **unknown**; previous older basic combat live test does not validate this patch or v0.2.4 extension behavior.
+- This is a name/version-only release to support clearer Foundry Module Management. No behavior, Actor/Item/Scene/Chat/User flags, macros/hotbars, permissions, dice, health, Magick API or Paradox logic changed. Automated manifest assertions include new display title, stable internal ID, and versioned ZIP URI.
+- Rollback code: published v0.2.4 release; back up world and module folder prior to replacement. Safe to revert module files with Foundry stopped; completed combat health changes are not undone by rollback.
+- Next live smoke test: update module in Foundry v14 world, refresh both GM/player clients, verify a single checkbox entry titled **WoD20 Combat Workflow** and correct enabled status, then execute one ordinary Attack → Defense → Damage → Soak → optional GM Apply/Undo (including chat roll creation). Updated release's two-client Grapple/HUD behavior remains unverified until user tests it.
+- Scope excludes upcoming README/repository presentation cleanup in W17 proposed handoff; per user standard, reserve that work for next approved functional release. Proposed future owner 17 (former 16.1) is a private planning label, not a module ID or current chat rename. Shared contracts 100/101/104 unchanged.
