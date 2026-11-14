@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.2. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.3. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -121,6 +121,46 @@ function isGrappleManeuver(item) {
 }
 function attackWeaponList(actor) {
   return weaponList(actor).filter(item => !isGrappleManeuver(item));
+}
+// Basic attacks are VIRTUAL and never written to an Actor. These values match
+// Combat Library's general maneuvers; any owned edited Item takes precedence.
+const BASIC_MANEUVERS=Object.freeze({
+  bite:Object.freeze({name:"Bite",difficulty:5,bonus:1}),
+  kick:Object.freeze({name:"Kick",difficulty:7,bonus:1}),
+  punch:Object.freeze({name:"Punch",difficulty:6,bonus:0})
+});
+const BASIC_KEYS=Object.freeze(["bite","kick","punch"]);
+const BASIC_PREFIX="stl-basic:";
+function validBasicManeuver(key) {
+  return typeof key==="string"&&Object.prototype.hasOwnProperty.call(BASIC_MANEUVERS,key);
+}
+function ownedBasicWeapon(actor,key) {
+  if(!validBasicManeuver(key))return null;
+  return attackWeaponList(actor).find(item=>
+    item.type==="Melee Weapon"&&String(item.name??"").trim().toLowerCase()===key)??null;
+}
+function basicWeapon(key) {
+  const spec=BASIC_MANEUVERS[key];
+  if(!spec)return null;
+  return {id:null,type:"Melee Weapon",name:spec.name,system:{
+    attack:{attribute:"dexterity",ability:"brawl",accuracy:0,isrollable:true},
+    damage:{attribute:"strength",bonus:spec.bonus,type:"bashing",isrollable:true},
+    difficulty:spec.difficulty,isnatural:true}};
+}
+function workflowWeapon(actor,weaponId,basicManeuver) {
+  if(weaponId)return actor.items.get(weaponId)??null;
+  return validBasicManeuver(basicManeuver)?basicWeapon(basicManeuver):null;
+}
+function attackOptions(actor) {
+  const weapons=attackWeaponList(actor);
+  const used=new Set();
+  const defaults=BASIC_KEYS.map(key=>{
+    const existing=ownedBasicWeapon(actor,key);
+    if(existing){used.add(existing.id);return {value:existing.id,label:existing.name};}
+    return {value:BASIC_PREFIX+key,label:BASIC_MANEUVERS[key].name};
+  });
+  return [...defaults,...weapons.filter(item=>!used.has(item.id))
+    .map(item=>({value:item.id,label:item.name}))];
 }
 function woundPenalty(actor, origin) {
   if (isSpirit(actor)) return 0;
@@ -1200,9 +1240,44 @@ function addSheetCombatButtons(app, root) {
   }
   return count;
 }
+// Place missing basic actions in the native Natural Weapons section without
+// creating Items. Native custom weapons retain their WoD20 rows and behavior.
+function addSheetBasicManeuvers(app,root) {
+  const actor=app?.actor;
+  if(game.system?.id!=="worldofdarkness"||!actor?.items||!root?.querySelector)return 0;
+  const header=root.querySelector(".headlineRow.combat-natural-itemlist");
+  const list=header?.nextElementSibling;
+  if(!list?.prepend||!list?.querySelector)return 0;
+  let count=0;
+  for(const key of [...BASIC_KEYS].reverse()) {
+    if(ownedBasicWeapon(actor,key)||list.querySelector(`[data-stl-basic-maneuver="${key}"]`))continue;
+    const spec=BASIC_MANEUVERS[key];
+    const row=document.createElement("div");
+    row.className="item-row-area combat-natural-itemlist stl-basic-maneuver-row";
+    row.dataset.stlBasicManeuver=key;
+    row.innerHTML=`<div class="dragrow headlineNormal combat-natural-itemlist">
+      <span class="width-iconbox" aria-hidden="true"></span>
+      <button type="button" class="width-namebox stl-basic-maneuver-launch" aria-label="${spec.name} attack" title="Start ${spec.name} in Combat Workflow">${spec.name}</button>
+      <span class="width-smallbox">Dexterity</span><span class="width-abilitybox">Brawl</span>
+      <span class="width-valuebox">0</span><span class="width-valuebox">${spec.difficulty}</span>
+      <span class="width-smallbox">Str +${spec.bonus} B</span></div>`;
+    row.querySelector(".stl-basic-maneuver-launch")?.addEventListener("click",event=>{
+      event.preventDefault();event.stopPropagation();
+      void open({attackerActor:actor,defaultManeuver:key}).catch(error=>{
+        console.error(`${MODULE} | Basic maneuver failed`,error);
+        notify(`Combat workflow: ${error.message}`);
+      });
+    });
+    list.prepend(row);count++;
+  }
+  return count;
+}
 Hooks.on("renderActorSheetV2", (app, root) => {
   captureSpiritWeaponSheet(app, root);
-  queueMicrotask(() => addSheetCombatButtons(app, root));
+  queueMicrotask(() => {
+    addSheetCombatButtons(app, root);
+    addSheetBasicManeuvers(app, root);
+  });
 });
 
 // Intercept the native weapon launcher before its DiceRoller runs.
