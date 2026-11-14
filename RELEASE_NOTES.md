@@ -1,16 +1,17 @@
-# WoD20 Combat Workflow v0.3.1 — Spirit Punch dice fix
+# WoD20 Combat Workflow v0.3.2 — Review incomplete NPC stats
 
-**Fixed:** Clicking Punch on a WoD20 Creature (Spirit) could produce a one-die attack despite having seven dots of Willpower.
+Combat Workflow now offers a **GM-only stat review** when a non-player character has a missing or untrained (0) combat Ability.
 
-- Spirit physical attack/defense/soak now use the **permanent trait rating** (the filled dots on the sheet) rather than a potentially stale or temporarily reduced computed `roll` value. Spirit damage uses permanent Rage.
-- Native Spirit weapon rows now launch Combat Workflow before the original WoD20 Dexterity + Brawl handler. With one defender targeted and a GM online, the clicked weapon is preselected and the workflow makes one native attack roll.
-- Without exactly one target or a connected GM, a Spirit weapon click now warns **without making a misleading roll**. Ordinary physical actors retain their native fallback.
-- The Spirit attack dialog displays the Willpower-based pool before you roll. No changes to other creature stats, Actor data, macros, Paradox, Magick, or the native WoD20 system.
+For example, Catfiend's **Punch** has Dexterity 1 + Brawl 0, so the default attack is legitimately one die. If the character is unfinished, the GM may enter temporary **Dexterity 3 + Brawl 2** and roll **five dice** instead. The value is for this roll only; **the Actor sheet is not changed**. Accept the existing zero if being untrained is intentional.
 
-**Test it:** Captain Marsh should display **7 Willpower attack dice** for Punch, with **5 base Rage damage dice**, plus any qualifying net attack-success bonus. Select one target, click Punch, then check the native WoD20 chat card for **seven dice**, not merely the number of successes.
+This works with supported NPC Attack, Defense, Grapple, Damage and Soak steps. Missing Spirit Willpower/Rage and unknown native NPC soak pools can also be reviewed. It never invents stats or automatically edits character data.
 
-**Safety and status:** GitHub automated regressions cover the reported Willpower 7 / derived roll 1 case, targeted/untargeted sheet clicks, no-GM safeguards, and native opt-out. **Live Foundry v14 has not been retested.** Back up your world and current module folder, update, restart Foundry and refresh clients. For an immediate workaround select one target and use the lightning-bolt Actions → Attack menu with Punch.
+The option **Review untrained NPC combat stats (GM)** is enabled by default per GM client and can be switched off. Other player and PC rolls are unchanged.
 
-**Rollback:** [v0.3.0](https://github.com/rebsiot/combat-workflow/releases/tag/v0.3.0). Reverting the module does not undo wounds or Essence changes already applied during play.
+**Upgrade:** Back up your Foundry world and the existing module folder `Data/modules/stl-combat-workflow`. Install the complete v0.3.2 ZIP or update from the manifest, restart Foundry and refresh clients.
+
+**First test:** As GM, target an opponent with Catfiend, click Punch, accept/adjust Dexterity and Brawl, then verify the native WoD20 dice card shows the selected number of dice. Confirm Catfiend's saved stats are unchanged.
+
+**Verification:** Automated and mock tests only until tested in a live Foundry v14 world. No Actor migrations. If necessary, turn off the client setting or restore [v0.3.1](https://github.com/rebsiot/combat-workflow/releases/tag/v0.3.1); code rollback does not reverse wound/Essence changes from gameplay.
 
 Install manifest: https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json

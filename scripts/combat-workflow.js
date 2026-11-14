@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.1. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.2. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -762,6 +762,104 @@ async function promptFields(title, fields, confirmText = "Roll") {
     window:{title}, content, ok:{label:confirmText}, rejectClose:false, modal:true
   });
 }
+// The WoD20 Creature/NPC sheet often has unselected (0) Abilities, even when
+// its combat Items say "Dexterity + Brawl". An untrained 0 is legal, NOT proof
+// the character is unfinished. Offer the GM an explicit, temporary rating
+// override, without mutating the Actor or silently making up a combat trait.
+function combatRating(actor,type,key,customId="") {
+  if (!key || key==="noselected") return {key,value:0,present:false};
+  let raw;
+  if (type==="attribute") {
+    const entry=actor?.system?.attributes?.[key];
+    raw=entry?.total ?? entry?.value ?? actor?.system?.[key]?.roll;
+  } else if (key==="custom") {
+    raw=actor?.items?.get?.(customId)?.system?.value;
+  } else {
+    try { raw=actor?.api?.getAbility?.(key)?.system?.value; }
+    catch (_error) { /* Fall back to the real WoD20 Actor schema. */ }
+    raw ??= actor?.system?.abilities?.[key]?.value;
+    if (raw==null) {
+      const owned=actor?.items?.find?.(i=>i.type==="Ability" && (i.system?.id===key||i.system?.key===key));
+      raw=owned?.system?.value;
+    }
+  }
+  const present=raw!==null && raw!==undefined && raw!=="" &&
+    Number.isFinite(Number(raw)) && Number.isInteger(Number(raw)) && Number(raw)>=0;
+  return {key,value:present?clamp(raw,0,100):0,present};
+}
+function combatStatName(key) {
+  return key==="custom"?"Custom Ability":String(key??"Stat").replace(/(^|[-_ ])([a-z])/g,(_m,space,letter)=>space+letter.toUpperCase());
+}
+function gmStatReviewEnabled(actor) {
+  return !!game.user?.isGM && String(actor?.type??"").toLowerCase()!=="pc" &&
+    (!game.settings?.get || game.settings.get(MODULE,"reviewNpcCombatStats")!==false);
+}
+function checkedRating(value) {
+  if(value==null || value==="" || !Number.isInteger(Number(value)) || Number(value)<0 || Number(value)>100) {
+    throw new Error("Temporary combat stats must be whole numbers from 0 to 100.");
+  }
+  return Number(value);
+}
+// Returns {pool,note} on confirmation, null if cancelled or invalid. Valid
+// zeroes stay zero unless GM explicitly changes them. Never saves to Actor.
+async function reviewGMCombatPool(actor,{pool,attribute="noselected",ability="noselected",
+  customId="",spiritKey="",label="Combat",totalMissing=false}={}) {
+  const startPool=pool==null?0:Math.max(0,safeInt(pool));
+  if(!gmStatReviewEnabled(actor)) return pool==null?null:{pool:startPool,note:""};
+  if (isSpirit(actor)) {
+    const trait=spiritKey||"";
+    if(!trait) return pool==null?null:{pool:startPool,note:""};
+    const value=spiritTrait(actor,trait);
+    if(value!==null && value>0) return {pool:startPool,note:""};
+    const fields=[
+      {name:"info",type:"info",label:"GM only",value:"Missing/zero spirit trait. Temporary rating for this roll only; Actor unchanged"},
+      {name:"rating",label:combatStatName(trait)+(value===null?" (missing)":" (currently 0)"),
+        value:value??0,min:0,max:100}
+    ];
+    const result=await promptFields(`${actor.name}: Review ${label} stat`,fields,"Use This Rating");
+    if(!result) return null;
+    try {
+      const rating=checkedRating(result.rating);
+      return {pool:Math.max(0,startPool+rating-(value??0)),
+        note:`GM temporary ${combatStatName(trait)} ${rating}; Actor not changed`};
+    } catch(error) { notify(error.message); return null; }
+  }
+  if(totalMissing) {
+    const result=await promptFields(`${actor.name}: Review ${label} pool`,[
+      {name:"info",type:"info",label:"GM only",value:"No native soak pool found. Enter temporary dice for this roll; Actor unchanged"},
+      {name:"pool",label:"Total "+label+" dice",value:startPool,min:0,max:100}
+    ],"Use This Pool");
+    if(!result) return null;
+    try {
+      const newPool=checkedRating(result.pool);
+      return {pool:newPool,note:`GM temporary ${label} dice ${newPool}; Actor not changed`};
+    } catch(error) { notify(error.message); return null; }
+  }
+  const attr=attribute!=="noselected"?combatRating(actor,"attribute",attribute):null;
+  const abl=ability!=="noselected"?combatRating(actor,"ability",ability,customId):null;
+  // A zero untrained Ability is legitimate: prompt with "Roll as shown" defaults.
+  // Do not treat a normal Attribute rating of 1 as missing automatically.
+  if ((attr?.present!==false) && (!abl || (abl.present && abl.value>0))) {
+    return pool==null?null:{pool:startPool,note:""};
+  }
+  const fields=[{name:"info",type:"info",label:"GM only",
+    value:"A stat is missing or untrained (0). Verify ratings for this roll only; 0 is valid. Actor unchanged"}];
+  if(attr) fields.push({name:"attr",label:combatStatName(attribute)+(attr.present?"":" (missing)"),
+    value:attr.value,min:0,max:100});
+  if(abl) fields.push({name:"ability",label:combatStatName(ability)+(!abl.present?" (missing)":abl.value===0?" (untrained)":""),
+    value:abl.value,min:0,max:100});
+  const result=await promptFields(`${actor.name}: Review ${label} stats`,fields,"Use These Stats");
+  if(!result) return null;
+  try {
+    const newAttr=attr?checkedRating(result.attr):0;
+    const newAbility=abl?checkedRating(result.ability):0;
+    const delta=(attr?newAttr-attr.value:0)+(abl?newAbility-abl.value:0);
+    const note=[attr&&`${combatStatName(attribute)} ${newAttr}`,
+      abl&&`${combatStatName(ability)} ${newAbility}`].filter(Boolean).join(", ");
+    return {pool:Math.max(0,startPool+delta),note:`GM confirmed temporary ${note}; Actor not changed`};
+  } catch(error) {notify(error.message);return null;}
+}
+
 function attackContext({attackerActor = null, attackerToken = null} = {}) {
   if (!DiceRoller) { notify("WoD20 dice functions unavailable."); return null; }
   // Sheet buttons supply an Actor; a token's right-click HUD supplies its
@@ -816,11 +914,21 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   if (!supportsFireMode(item,mode)) return notify("That weapon does not support the selected firing mode.");
   const spec=FIRE_MODES[mode]??FIRE_MODES.single;
   const stats=attackData(attacker,item);
-  if (stats.pool===null) return notify("Spirit Willpower is missing; enter the trait before attacking.");
+  const reviewed=await reviewGMCombatPool(attacker,{
+    pool:stats.pool ?? (isSpirit(attacker)?safeInt(item?.system?.attack?.accuracy):null),
+    attribute:stats.attribute,ability:stats.ability,
+    customId:item?.system?.attack?.secondaryabilityid||"",
+    spiritKey:isSpirit(attacker)?"willpower":"",
+    label:(item?.name||"Unarmed")+" attack"
+  });
+  if(!reviewed) {
+    if(stats.pool===null && !game.user?.isGM) notify("Spirit Willpower missing; ask the GM to correct this stat.");
+    return;
+  }
   const difficulty=choice.difficulty==="0"||choice.difficulty===0||choice.difficulty==null
     ? clamp(stats.difficulty+spec.difficulty,2,10) : clamp(choice.difficulty,2,10);
   const modifier=clamp(choice.modifier,-50,50);
-  const pool=Math.max(0,stats.pool+modifier+spec.bonus);
+  const pool=Math.max(0,reviewed.pool+modifier+spec.bonus);
   const split=count>1?splitAttackPool(pool,count):null;
   if (count>1 && !split) return notify(`Cannot divide ${pool} attack dice among ${count} attacks.`);
   const ammo=ammunitionUse(item,mode);
@@ -831,6 +939,7 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
     pool:split?split[0]:pool,difficulty,bonus:modifier,
     extraInfo:[`Target: ${target.name}`,
       ...(stats.note?[stats.note]:[]),
+      ...(reviewed.note?[reviewed.note]:[]),
       ...(mode!=="single"?[`Native firing mode: ${spec.caption} (+${spec.bonus} dice, +${spec.difficulty} difficulty)`]:[]),
       ...(split?[`Split action 1/${count}: pools ${split.join("/")}`]:[])]
   });
@@ -848,8 +957,15 @@ async function openGrapple({attackerActor = null, attackerToken = null} = {}) {
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
   const dice=grappleDice(attacker,"start");
-  if (dice.pool===null) return notify("Spirit Willpower not configured; GM must resolve this grapple.");
-  const base=Math.max(0,dice.pool);
+  const reviewed=await reviewGMCombatPool(attacker,{
+    pool:dice.pool,attribute:dice.attribute,ability:dice.ability,
+    spiritKey:isSpirit(attacker)?"willpower":"",label:"initial grapple"
+  });
+  if(!reviewed) {
+    if(dice.pool===null && !game.user?.isGM) notify("Spirit Willpower missing; ask the GM to correct this stat.");
+    return;
+  }
+  const base=Math.max(0,reviewed.pool);
   const choice = await promptFields(`${attacker.name}: Grapple ${target.name}`, [
     {name:"pool",label:dice.label,value:base,min:0,max:100},
     {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
@@ -860,7 +976,8 @@ async function openGrapple({attackerActor = null, attackerToken = null} = {}) {
   const successes = await nativeRoll(attacker, {
     origin:"attack",action:"Grapple / Hold",
     attribute:dice.attribute,ability:dice.ability,pool,difficulty,
-    extraInfo:[`Target: ${target.name}`, dice.note||"Grapple: opposed Strength + Brawl"]
+    extraInfo:[`Target: ${target.name}`, dice.note||"Grapple: opposed Strength + Brawl",
+      ...(reviewed.note?[reviewed.note]:[])]
   });
   send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
     targetUuid:target.document.uuid,weaponId:null,successes,
@@ -912,16 +1029,24 @@ async function clickAction(event) {
     if (action==="grapple-release") return send({type:"advance",messageId:msg.id,step:action});
     if (action==="grapple-none") return send({type:"advance",messageId:msg.id,step:"grapple-resist",choice:"none",successes:0});
     const dice=grappleDice(contender,"contest");
-    if (dice.pool===null) return notify("Spirit Rage is missing; GM must resolve the grapple contest.");
+    const reviewed=await reviewGMCombatPool(contender,{
+      pool:dice.pool,attribute:dice.attribute,ability:dice.ability,
+      spiritKey:isSpirit(contender)?"rage":"",label:"grapple contest"
+    });
+    if(!reviewed) {
+      if(dice.pool===null && !game.user?.isGM) notify("Spirit Rage missing; ask the GM to correct this stat.");
+      return;
+    }
     const opts=await promptFields(`${contender.name}: ${action.replace("grapple-","")}`,[
-      {name:"pool",label:dice.label,value:dice.pool,min:0,max:100},
+      {name:"pool",label:dice.label,value:reviewed.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
     ]);
     if (!opts) return;
     const successes=await nativeRoll(contender,{
       origin:"attack",action:`Grapple ${action.replace("grapple-","")}`,
       attribute:dice.attribute,ability:dice.ability,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
-      extraInfo:[`Grapple: ${actor.name} holding ${defender.name}`,...(dice.note?[dice.note]:[])]
+      extraInfo:[`Grapple: ${actor.name} holding ${defender.name}`,
+        ...(dice.note?[dice.note]:[]),...(reviewed.note?[reviewed.note]:[])]
     });
     return send({type:"advance",messageId:msg.id,
       step:action==="grapple-resist"?"grapple-resist":action,
@@ -931,17 +1056,26 @@ async function clickAction(event) {
     if (!mayUse(game.user.id, defender)) return notify("Only the defender (or GM) can defend.");
     if (action === "none") return send({type:"advance", messageId:msg.id, step:"defense", choice:action, successes:0});
     const dice=defenseDice(defender,action);
-    if (dice.pool===null) return notify("Spirit Willpower is missing; GM must resolve this defense.");
+    const reviewed=await reviewGMCombatPool(defender,{
+      pool:dice.pool,attribute:dice.attribute,ability:dice.ability,
+      spiritKey:isSpirit(defender)?"willpower":"",label:action+" defense"
+    });
+    if(!reviewed) {
+      if(dice.pool===null && !game.user?.isGM) notify("Spirit Willpower missing; ask the GM to correct this stat.");
+      return;
+    }
     const splat=gameType(defender);
     const defaultDifficulty=splat.includes("mage")?({dodge:6,block:8,parry:7}[action]):6;
     const opts=await promptFields(`${defender.name}: ${action}`, [
-      {name:"pool",label:dice.label,value:dice.pool,min:0,max:100},
+      {name:"pool",label:dice.label,value:reviewed.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:defaultDifficulty,min:2,max:10}
     ]);
     if (!opts) return;
     const successes=await nativeRoll(defender,{origin:"attack",action:`${action} defense vs ${actor.name}`,
       attribute:dice.attribute,ability:dice.ability,pool:clamp(opts.pool,0,100),
-      difficulty:clamp(opts.difficulty,2,10),extraInfo:dice.note?[dice.note]:[]});
+      difficulty:clamp(opts.difficulty,2,10),extraInfo:[
+        ...(dice.note?[dice.note]:[]),...(reviewed.note?[reviewed.note]:[])
+      ]});
     return send({type:"advance", messageId:msg.id, step:"defense", choice:action, successes});
   }
   if (action === "damage" && state.stage === "damage") {
@@ -949,31 +1083,50 @@ async function clickAction(event) {
     const item = state.weaponId ? actor.items.get(state.weaponId) : null;
     if (state.weaponId && !item) return notify("Weapon was removed from attacker; GM must resolve manually.");
     const damage = defaultDamagePool(actor, item, state.netSuccesses);
-    if (damage.pool===null) return notify("Spirit Rage is missing; GM must resolve damage manually.");
+    const reviewed=await reviewGMCombatPool(actor,{
+      pool:damage.pool ?? (isSpirit(actor)?damage.extra+safeInt(item?.system?.damage?.bonus):null),
+      attribute:damage.attribute,
+      spiritKey:isSpirit(actor)?"rage":"",label:"damage"
+    });
+    if(!reviewed) {
+      if(damage.pool===null && !game.user?.isGM) notify("Spirit Rage missing; ask the GM to correct this stat.");
+      return;
+    }
     const opts = await promptFields(`${actor.name}: Roll Damage`, [
-      {name:"pool",label:`Damage dice (includes ${damage.extra} attack bonus)`,value:damage.pool,min:0,max:100},
+      {name:"pool",label:`Damage dice (includes ${damage.extra} attack bonus)`,value:reviewed.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
     ]);
     if (!opts) return;
     const successes = await nativeRoll(actor,{origin:"damage",action:`${state.weaponName} damage`,
       attribute:damage.attribute,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
       extraInfo:[`Damage type: ${state.damageType}`,`Net attack successes: ${state.netSuccesses}`,
-        ...(damage.note?[damage.note]:[])]});
+        ...(damage.note?[damage.note]:[]),...(reviewed.note?[reviewed.note]:[])]});
     return send({type:"advance", messageId:msg.id, step:"damage", successes});
   }
   if ((action === "soak" || action === "no-soak") && state.stage === "soak") {
     if (!mayUse(game.user.id, defender)) return notify("Only the defender (or GM) handles soak.");
     if (action === "no-soak") return send({type:"advance", messageId:msg.id, step:"soak", choice:"none", successes:0});
     const dice=soakDice(defender,state.damageType);
-    if (dice.pool===null) return notify("Spirit Willpower is missing; GM must resolve soak manually.");
+    const nativeSoak=defender.system?.soak?.[state.damageType];
+    const reviewed=await reviewGMCombatPool(defender,{
+      pool:dice.pool ?? (isSpirit(defender)?safeInt(defender.system?.settings?.soak?.[state.damageType]?.bonus):null),
+      attribute:"noselected",spiritKey:isSpirit(defender)?"willpower":"",
+      totalMissing:!isSpirit(defender) && (nativeSoak===null || nativeSoak===undefined || nativeSoak===""),
+      label:state.damageType+" soak"
+    });
+    if(!reviewed) {
+      if(dice.pool===null && !game.user?.isGM) notify("Spirit Willpower missing; ask the GM to correct this stat.");
+      return;
+    }
     const opts=await promptFields(`${defender.name}: Soak ${state.damageType}`, [
-      {name:"pool",label:dice.label,value:dice.pool,min:0,max:100},
+      {name:"pool",label:dice.label,value:reviewed.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
     ]);
     if (!opts) return;
     const successes=await nativeRoll(defender,{origin:"soak",action:`Soak ${state.damageType} from ${actor.name}`,
       attribute:dice.attribute,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
-      extraInfo:[`Incoming damage successes: ${state.damage.successes}`,...(dice.note?[dice.note]:[])]});
+      extraInfo:[`Incoming damage successes: ${state.damage.successes}`,
+        ...(dice.note?[dice.note]:[]),...(reviewed.note?[reviewed.note]:[])]});
     return send({type:"advance",messageId:msg.id,step:"soak",choice:"roll",successes});
   }
   if ((action === "apply" || action === "skip") && state.stage === "resolved") {
@@ -1142,6 +1295,11 @@ Hooks.once("ready", async () => {
     console.error(`${MODULE} | WoD20 native API missing`, error);
     return notify("STL Combat Workflow cannot load WoD20 native APIs.", "error");
   }
+  game.settings.register(MODULE,"reviewNpcCombatStats",{
+    name:"Review untrained NPC combat stats (GM)",
+    hint:"When a GM rolls for a non-PC with a missing stat or an untrained (0) Ability, offer a temporary rating correction. Zero remains a valid choice. Never saves the Actor.",
+    scope:"client",config:true,type:Boolean,default:true
+  });
   game.settings.register(MODULE,"autoWeaponAttacks",{
     name:"Use Combat Workflow from weapon attacks",
     hint:"When you have exactly one target and a GM is online, using a weapon's native Attack control starts Combat Workflow with that weapon selected. Other rolls and damage-only buttons remain native.",

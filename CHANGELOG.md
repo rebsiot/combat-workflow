@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.2 — 2026-11-14 — GM review of incomplete NPC combat stats
+
+- When the GM rolls for a non-PC with a missing/untrained (zero) combat Ability, offer an optional **Review combat stats** prompt before native WoD20 dice are rolled. Show current Attribute and Ability ratings; the GM can keep an intentionally untrained zero or enter temporary ratings for that roll. A missing Attribute also prompts. No Actor/Item/flag mutation, migration, or permanent combat bonus; the changed ratings appear only in the current roll's dice count and chat explanation.
+- Apply the review to weapon/unarmed attacks, defense rolls, grapple contests, and relevant damage/soak stages. For a Spirit with a missing/zero Willpower or Rage trait, the GM can supply the trait temporarily. When a normal NPC's native soak pool is entirely missing, the GM may supply a temporary soak dice pool instead of silently pretending it exists.
+- GM-only and non-PC-only; PC/player rolls remain unchanged. An untrained zero is **not an error**. Add an enabled-by-default **client** setting `reviewNpcCombatStats` to turn these additional prompts off. No changes to Foundry native dice integration, Paradox, combat-health Apply/Undo, or previously published module IDs/flags.
+- Regression mock covers Catfiend's Dexterity 1 + Brawl 0, corrected Dex 3 + Brawl 2 → five native attack dice, intentional zero, nonmutating Actor/Spirit/soak overrides, missing Attribute, player/PC exclusions, GM setting opt-out and preservation of native combat workflow.
+- **Testing:** GitHub CI/mock tests only; live GM+player Foundry v14 and WoD20 7.3.x pending. Backup folder and world; rollback full v0.3.1 ZIP. No data migrations.
+
+
 ## v0.3.1 — 2026-11-14 — Creature (Spirit) Punch dice bug
 
 - Fix Spirit Willpower 7 displaying a **one-die** Punch attack when the derived WoD20 `advantages.willpower.roll` was stale or reduced: combat now reads `permanent` rating first, falling back to `roll` only if permanent is absent. The same applies to Spirit Rage for basic physical damage and contest rolls.

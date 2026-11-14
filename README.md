@@ -41,7 +41,7 @@ To opt out on your own client, turn off **Use Combat Workflow from weapon attack
 
 This integration routes the native weapon *launcher* into Combat Workflow; it does not inspect or copy successes from an attack that already rolled. The WoD20 system's own complex weapon-dialog-only features (for example, spray fire or specialist modifiers) remain available by disabling auto-launch for that client.
 
-### Vampires, werewolves, spirits and other creatures (v0.3.1)
+### Vampires, werewolves, spirits and other creatures (v0.3.2)
 
 The attacker and defender are resolved **independently** using their actual WoD20 Actor type:
 
@@ -55,6 +55,14 @@ The attacker and defender are resolved **independently** using their actual WoD2
 
 This is a basic physical combat resolver, **not** automation for Gifts, Charms, Spheres, supernatural immunities, environmental effects, or the full W20/M20 rules. If a Spirit's Willpower or Rage is missing, the workflow warns and does not silently roll a 0–2 die pool. Spirit grapple prompts also use Willpower for the initial coordination roll and Rage for physical escape/hold contests; the GM may adjust these for the situation.
 
+### GM-only incomplete NPC combat stats (v0.3.2)
+
+When a GM rolls for a non-PC whose relevant combat Ability is **untrained (0)** or missing, Combat Workflow offers a short **Review combat stats** prompt before rolling. A zero is perfectly legal: simply accept the shown value to use it. If the Actor is unfinished, enter temporary Attribute and Ability ratings for the current roll.
+
+**Example — Catfiend:** The sheet shows Dexterity 1 and no Brawl rating. Click **Punch** with one target selected. The GM reviews **Dexterity 1 + Brawl 0**, can enter Dexterity 3 and Brawl 2, and Combat Workflow rolls **five dice** this time. Its saved Dexterity and Brawl remain unchanged. The temporary values are noted on the native WoD20 dice message. It does **not** automatically fill in the Actor sheet or assume that missing Brawl means Brawl 2.
+
+The review applies to relevant NPC attack, defense, grapple, damage and soak stages. A fully rated Ability does not trigger a review; a valid zero can always be accepted. When a Spirit is missing a necessary Willpower or Rage trait, a GM can enter a one-roll value. If native soak data is absent, the GM may supply a one-roll soak pool rather than the module inventing it. **Players and PC sheets** are unaffected. To turn this convenience off for your own GM browser, disable **Review untrained NPC combat stats (GM)** in module settings. Missing/unusual creature powers, soaking limits and supernatural immunities remain Storyteller decisions.
+
 ### Grapple and extra actions
 
 - **Grapple** is a separate choice under the token's lightning-bolt Actions menu; it asks for Strength + Brawl and Difficulty, then handles Resist, Hold, Escape and Release.
@@ -67,8 +75,8 @@ Players can replay the short tutorial from **Actions → Quick tutorial**. A fir
 
 - Attackers/defenders act only through Actors they control, or as GM. Only the GM applies/undoes health. No automatic mass import or data migration occurs.
 - Native WoD20 dice and chat messages are retained. Combat Workflow does **not** add a second dice system or process Paradox.
-- **Beta / field testing:** v0.3.1's Spirit Punch safeguard and splat-aware logic have automated tests covering Spirit ↔ Mage combat, Essence apply/undo and normal werewolf/vampire/creature calculations. This is **not** yet a live Foundry GM+player verification. The native-weapon launcher, chat layout and supernatural edge cases also need a two-client smoke test. Use a backed-up test world first.
-- Rollback: disable the new client setting for immediate return to WoD20's native weapon launcher, or restore the [v0.3.0 module release](https://github.com/rebsiot/combat-workflow/releases/tag/v0.3.0). Restoring module code does **not** reverse existing wound or Essence changes. Restore a matching world snapshot if needed.
+- **Beta / field testing:** v0.3.2's GM temporary-stat review, Spirit Punch safeguard and splat-aware logic have automated tests covering Spirit ↔ Mage combat, Essence apply/undo and normal werewolf/vampire/creature calculations. This is **not** yet a live Foundry GM+player verification. The native-weapon launcher, chat layout and supernatural edge cases also need a two-client smoke test. Use a backed-up test world first.
+- Rollback: disable the new client setting for immediate return to WoD20's native weapon launcher, or restore the [v0.3.1 module release](https://github.com/rebsiot/combat-workflow/releases/tag/v0.3.1). Restoring module code does **not** reverse existing wound or Essence changes. Restore a matching world snapshot if needed.
 
 For changes and older versions, see the [changelog](CHANGELOG.md), [releases](https://github.com/rebsiot/combat-workflow/releases), and [issues](https://github.com/rebsiot/combat-workflow/issues).
 

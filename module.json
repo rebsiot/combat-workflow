@@ -2,7 +2,7 @@
   "id": "stl-combat-workflow",
   "title": "WoD20 Combat Workflow",
   "description": "Guided WoD20 attacks, defense, damage, soak and guarded GM health/Spirit Essence application using native dice. Supports targeted weapon-sheet launch.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "authors": [
     {
       "name": "St. Louis v2 private toolkit"
@@ -35,6 +35,6 @@
   "url": "https://github.com/rebsiot/combat-workflow",
   "license": "MIT",
   "manifest": "https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json",
-  "download": "https://github.com/rebsiot/combat-workflow/releases/download/v0.3.1/stl-combat-workflow-v0.3.1.zip",
+  "download": "https://github.com/rebsiot/combat-workflow/releases/download/v0.3.2/stl-combat-workflow-v0.3.2.zip",
   "bugs": "https://github.com/rebsiot/combat-workflow/issues"
 }
