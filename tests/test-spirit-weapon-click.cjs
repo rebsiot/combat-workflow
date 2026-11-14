@@ -19,6 +19,7 @@ const game={user:{id:"player",isGM:false,targets},
   users:{get:id=>[player,gm].find(x=>x.id===id),filter:fn=>[player,gm].filter(fn)},
   settings:{get:()=>true},system:{id:"worldofdarkness"}};
 const ctx=vm.createContext({console,game,Math,Number,String,Promise,
+  CONFIG:{worldofdarkness:{successesToDamageRolls:true}},
   Hooks:{on(){},once(){}},foundry:{applications:{api:{DialogV2:{input:async o=>o}}}},
   ui:{notifications:{warn:m=>errors.push(m),error:m=>errors.push(m)}},
   document:{addEventListener(){}}});
