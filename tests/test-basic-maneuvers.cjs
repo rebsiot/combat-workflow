@@ -69,6 +69,19 @@ assert.deepEqual(rows.map(r=>r.dataset.stlBasicManeuver),['kick','punch']);
 assert.equal(evaluate('addSheetBasicManeuvers(sheet,root)'),0,'rerender does not duplicate rows');
 assert.equal(rows.every(r=>typeof r.button.listeners.click==='function'),true);
 assert.equal(list.length,1,'no embedded Item created');
+// Creature/Spirit sheets have no PC-type requirement: all three defaults appear.
+const creature={...actor,type:'Creature',system:{...actor.system,settings:{variant:'spirit',splat:'creature'}},
+  items:{filter:()=>[],get:()=>null,find:()=>null}};
+const creatureRows=[];
+const creatureList={prepend:r=>creatureRows.unshift(r),querySelector:selector=>{
+  const key=selector.match(/"([^"]+)"/)?.[1];
+  return creatureRows.find(r=>r.dataset.stlBasicManeuver===key)||null;}};
+const creatureRoot={querySelector:s=>s==='.headlineRow.combat-natural-itemlist'
+  ? {nextElementSibling:creatureList}:null};
+ctx.creatureSheet={actor:creature};ctx.creatureRoot=creatureRoot;
+assert.equal(evaluate('addSheetBasicManeuvers(creatureSheet,creatureRoot)'),3);
+assert.deepEqual(creatureRows.map(r=>r.dataset.stlBasicManeuver),['bite','kick','punch']);
+assert.equal(evaluate('addSheetBasicManeuvers(creatureSheet,creatureRoot)'),0);
 assert.equal(warnings.length,0);
 
 (async()=>{
