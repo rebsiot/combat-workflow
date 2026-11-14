@@ -228,3 +228,23 @@
 .stl-combat-next button {
   width: 100%;
 }
+
+/* Virtual universal basic maneuvers: native Natural Weapons layout, no Actor Items. */
+.stl-basic-maneuver-row .stl-basic-maneuver-launch {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  margin: 0;
+  min-height: 1.5rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.stl-basic-maneuver-row .stl-basic-maneuver-launch:hover,
+.stl-basic-maneuver-row .stl-basic-maneuver-launch:focus-visible {
+  text-decoration: underline;
+  outline-offset: 2px;
+}
+.stl-basic-maneuver-row .dragrow { align-items: center; }
