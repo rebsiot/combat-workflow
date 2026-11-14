@@ -128,7 +128,7 @@ async function step(step,extras={}){
   // Mage attacker -> Spirit target: native Essence and guarded undo.
   await start(b,a,4);
   assert.equal(state().targetHealthMode,"essence");
-  assert.match(last().content,/Spirit target: damage reduces Essence/);
+  assert.match(last().content,/Spirit target: GM can apply post-soak damage to Essence/);
   await step("defense",{choice:"dodge",successes:1});
   await step("damage",{successes:4});
   await step("soak",{choice:"roll",successes:2});
