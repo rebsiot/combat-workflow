@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.2.6. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.0. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -29,6 +29,65 @@ const getActor = async uuid => {
 const speaker = actor => ChatMessage.getSpeaker({actor});
 const notify = (message, type = "warn") => ui.notifications?.[type]?.(message);
 const gameType = actor => String(actor?.system?.settings?.splat ?? actor?.type ?? "").toLowerCase();
+// A WoD20 spirit is specifically a Creature with the spirit variant, not every
+// werewolf/creature with Rage or Gnosis. Spirit is also a recognized sheet type.
+function isSpirit(actor) {
+  const type=String(actor?.type ?? "").toLowerCase();
+  const variant=String(actor?.system?.settings?.variant ?? "").toLowerCase();
+  return type==="spirit" || (type==="creature" && variant==="spirit");
+}
+function spiritTrait(actor,key) {
+  const stat=actor?.system?.advantages?.[key];
+  const raw=stat?.roll ?? stat?.permanent;
+  if(raw===undefined || raw===null || raw==="" || !Number.isFinite(Number(raw)) || Number(raw)<0) return null;
+  return clamp(raw,0,100);
+}
+function spiritEssence(actor) {
+  const resource=actor?.system?.advantages?.essence;
+  const value=resource?.temporary;
+  if (value===undefined || value===null || value==="" || !Number.isInteger(Number(value)) || Number(value)<0) return null;
+  return safeInt(value);
+}
+function healthMode(actor) {
+  if (isSpirit(actor)) return spiritEssence(actor)===null?"manual":"essence";
+  // Wraith uses Corpus, not ordinary bashing/lethal/aggravated wound boxes.
+  // Keep its dice/chat workflow but require GM-managed Corpus resolution.
+  if (String(actor?.type??"").toLowerCase()==="wraith") return "manual";
+  return actor?.system?.health?.damage?"wounds":"manual";
+}
+function grappleDice(actor,phase="start") {
+  if(isSpirit(actor)) {
+    const trait=phase==="start"?"willpower":"rage";
+    const pool=spiritTrait(actor,trait);
+    return {pool,attribute:"noselected",ability:"noselected",
+      label:"Spirit "+(trait==="willpower"?"Willpower":"Rage")+" dice",
+      note:"GM adjudicates unusual spirit grapple/Charm interactions"};
+  }
+  return {pool:attributeValue(actor,"strength")+abilityValue(actor,"brawl"),
+    attribute:"strength",ability:"brawl",label:"Strength + Brawl dice",note:""};
+}
+function defenseDice(actor,choice) {
+  if(isSpirit(actor)) {
+    return {pool:spiritTrait(actor,"willpower"),attribute:"noselected",ability:"noselected",
+      label:"Spirit Willpower dice",note:"Spirit physical defense: Willpower"};
+  }
+  const abilities={dodge:"athletics",block:"brawl",parry:"melee"};
+  const ability=abilities[choice];
+  return {pool:attributeValue(actor,"dexterity")+abilityValue(actor,ability),
+    attribute:"dexterity",ability,label:"Dexterity + "+ability+" dice",note:""};
+}
+function soakDice(actor,damageType) {
+  if(isSpirit(actor)) {
+    const bonus=safeInt(actor.system?.settings?.soak?.[damageType]?.bonus);
+    const willpower=spiritTrait(actor,"willpower");
+    return {pool:willpower===null?null:Math.max(0,willpower+bonus),
+      attribute:"noselected",label:"Spirit Willpower soak dice",
+      note:"Spirit Willpower soak; GM adjusts for Armor Charms"};
+  }
+  const base=Math.max(0,safeInt(actor.system?.soak?.[damageType]));
+  const bonus=safeInt(actor.system?.settings?.soak?.[damageType]?.bonus);
+  return {pool:base+bonus,attribute:"stamina",label:"Soak dice (native soak + native bonus)",note:""};
+}
 
 function abilityValue(actor, key, customId = "") {
   if (!key || key === "noselected") return 0;
@@ -61,6 +120,7 @@ function attackWeaponList(actor) {
   return weaponList(actor).filter(item => !isGrappleManeuver(item));
 }
 function woundPenalty(actor, origin) {
+  if (isSpirit(actor)) return 0;
   if (actor.system?.conditions?.isignoringpain || actor.system?.conditions?.isfrenzy) return 0;
   if (origin === "damage" && !CONFIG.worldofdarkness?.usePenaltyDamage) return 0;
   if (origin === "soak") return 0;
@@ -70,9 +130,15 @@ function damageType(item) {
   const value = String(item?.system?.damage?.type ?? "bashing").toLowerCase();
   return VALID_DAMAGE.includes(value) ? value : "bashing";
 }
-function effectiveDamageType(item, target, override) {
+function effectiveDamageType(item, target, override, attacker = null) {
   if (VALID_DAMAGE.includes(override)) return override;
   const base = damageType(item);
+  // M20 spirit physical attacks are normally lethal; W20 and certain Charms
+  // can differ. Preserve explicit Item types and allow the attack override.
+  if (isSpirit(attacker) && (!item ||
+      (base==="bashing" && ["punch","kick","unarmed strike"].includes(String(item.name??"").trim().toLowerCase())))) {
+    return "lethal";
+  }
   // By default, ordinary firearms do bashing to Kindred in V20 except targeted headshots.
   // Different ammunition, supernatural weapons and targeted attacks can use the override.
   if (base === "lethal" && item?.type === "Ranged Weapon" &&
@@ -83,6 +149,12 @@ function effectiveDamageType(item, target, override) {
 }
 function attackData(actor, item) {
   const a = item?.system?.attack ?? {};
+  if(isSpirit(actor)) {
+    const willpower=spiritTrait(actor,"willpower");
+    return {attribute:"noselected",ability:"noselected",pool:willpower===null?null:Math.max(0,willpower+(item?safeInt(a.accuracy):0)),
+      difficulty:clamp(item?.system?.difficulty ?? 6,2,10),
+      label:"Spirit Willpower attack",note:"Spirit physical attack: Willpower"};
+  }
   const key = item ? String(a.attribute || "dexterity") : "dexterity";
   const ability = item ? String(a.ability || (item.type === "Ranged Weapon" ? "firearms" : "melee")) : "brawl";
   const custom = a.secondaryabilityid || "";
@@ -138,6 +210,11 @@ function splitAttackPool(pool,count) {
 function defaultDamagePool(actor, item, netHits) {
   const extra = CONFIG.worldofdarkness?.successesToDamageRolls === false ? 0 : Math.max(0, netHits - 1);
   const damage = item?.system?.damage ?? {};
+  if(isSpirit(actor)) {
+    const rage=spiritTrait(actor,"rage");
+    return {pool:rage===null?null:Math.max(0,rage+(item?safeInt(damage.bonus):0)+extra),
+      extra,attribute:"noselected",note:"Spirit physical damage: Rage"};
+  }
   const attr = item ? String(damage.attribute || "noselected") : "strength";
   const base = attributeValue(actor, attr) + (item ? safeInt(damage.bonus) : 0);
   return {pool:Math.max(0, base + extra), extra, attribute:attr};
@@ -198,12 +275,12 @@ function resultBanner(state) {
   const kind = isUndone ? "undone" : (damage === 0 ? "none" : "hit");
   const label = isUndone ? "DAMAGE UNDONE" : (damage === 0 ? "NO DAMAGE" : `${damage} ${String(state.damageType || "damage").toUpperCase()} DAMAGE`);
   let detail;
-  if (isUndone) detail = `${damage} ${String(state.damageType || "damage").toLowerCase()} damage undone — health restored.`;
+  if (isUndone) detail = `${damage} ${String(state.damageType || "damage").toLowerCase()} damage undone — ${state.targetHealthMode==="essence"?"Essence":"health"} restored.`;
   else if (isSkipped) detail = "Recorded only — not applied to health.";
-  else if (damage === 0) detail = "No health levels lost after soak.";
+  else if (damage === 0) detail = "No damage sustained after soak.";
   else if (state.stage === "resolved") detail = "After soak — awaiting GM decision.";
   else if (state.stage === "applying") detail = "Applying to health…";
-  else detail = "Damage applied to health.";
+  else detail = state.targetHealthMode === "essence" ? "Damage applied to Spirit Essence." : "Damage applied to health.";
   return `<div class="stl-combat-result stl-combat-result--${kind}" role="status"><strong>${esc(label)}</strong><span>${esc(detail)}</span></div>`;
 }
 // The acting character's name uses its controlling player's Foundry User color.
@@ -246,7 +323,12 @@ function turnPrompt(state, user = null) {
 function card(state, actingUser = null) {
   const header = `<div class="stl-combat-header"><strong>Combat Workflow</strong><small> ${esc(state.stage.toUpperCase())} </small></div>`;
   let body = turnPrompt(state, actingUser) + `<div class="stl-combat-subtitle">${resolveContext(state)}</div>`;
-  if (state.maneuver === "hold") body += '<p class="stl-combat-help">Grapple / Hold • Strength + Brawl</p>';
+  if (state.maneuver === "hold") body += '<p class="stl-combat-help">Grapple / Hold • uses each Actor\'s physical traits</p>';
+  if (state.targetHealthMode === "essence") {
+    body += '<p class="stl-combat-help">Spirit target: GM can apply post-soak damage to Essence. Special Charms and cross-realm attacks require GM judgment.</p>';
+  } else if (state.targetHealthMode === "manual") {
+    body += '<p class="stl-combat-help">This target uses a health resource not supported for automatic application (for example, missing Spirit Essence or Wraith Corpus). GM must record damage manually.</p>';
+  }
   if (state.firingMode && state.firingMode !== "single") body += `<p class="stl-combat-help">Firing mode: ${esc(FIRE_MODES[state.firingMode]?.caption || state.firingMode)}</p>`;
   if (state.combo) body += `<p class="stl-combat-help">Split attack ${safeInt(state.combo.index)} of ${safeInt(state.combo.count)} • pool ${safeInt(state.combo.pools?.[safeInt(state.combo.index)-1])} dice</p>`;
   body += line("Attack successes", state.attackSuccesses);
@@ -288,7 +370,13 @@ function card(state, actingUser = null) {
   if (state.stage === "resolved" || state.stage === "applying" || state.stage === "done") {
     if (state.stage === "resolved" && safeInt(state.finalDamage) > 0) {
       body += `<div class="stl-combat-actions">`;
-      body += button("Apply to Health", "apply") + button("Leave Unapplied", "skip") + `</div>`;
+      if (state.targetHealthMode === "manual") {
+        body += '<p class="stl-combat-help">No supported health resource found; record damage manually on the Actor.</p>';
+        body += button("Leave Unapplied", "skip");
+      } else {
+        body += button(state.targetHealthMode === "essence"?"Apply to Essence":"Apply to Health", "apply") + button("Leave Unapplied", "skip");
+      }
+      body += `</div>`;
     } else if (state.stage === "resolved") {
       body += `<p>No damage to apply. Combat is complete.</p>`;
     } else if (state.stage === "applying") body += `<p>Application started. If interrupted, verify the Actor before retrying manually.</p>`;
@@ -390,7 +478,8 @@ async function acceptContinue(payload) {
   next.finalDamage=null;
   next.undo=null;
   next.note="";
-  next.damageType=effectiveDamageType(item,target,next.damageOverride);
+  next.damageType=effectiveDamageType(item,target,next.damageOverride,attacker);
+  next.targetHealthMode=healthMode(target);
   next.stage=next.attackSuccesses>0?"defense":"miss";
   try { await makeMessage(next); }
   catch(error) {
@@ -415,7 +504,8 @@ async function acceptStart(payload) {
     targetName:target.name,
     weaponId:item?.id || null,
     weaponName:payload.maneuver === "hold" ? "Grapple / Hold" : (item?.name || "Unarmed Strike"),
-    damageType:effectiveDamageType(item, target, payload.damageOverride),
+    damageType:effectiveDamageType(item, target, payload.damageOverride, attacker),
+    targetHealthMode:healthMode(target),
     damageOverride:payload.damageOverride||"",
     maneuver:payload.maneuver === "hold" ? "hold" : "strike",
     firingMode:supportsFireMode(item,payload.firingMode) ? payload.firingMode : "single",
@@ -449,7 +539,7 @@ async function acceptAdvance(payload) {
     s.defense={choice:payload.choice==="roll"?"resist grapple":"none",successes:resisted};
     s.netSuccesses=Math.max(0,s.attackSuccesses-resisted);
     s.stage=s.netSuccesses>0?"holding":"grapple-free";
-    s.note=s.stage==="grapple-free"?"HOLD RESISTED":"Hold established: escape requires opposed Strength + Brawl.";
+    s.note=s.stage==="grapple-free"?"HOLD RESISTED":"Hold established: escape requires an opposed physical roll (spirit traits apply).";
     s.grapple={escapeSuccesses:null,attempts:0};
   } else if (step === "grapple-escape" && s.stage === "holding" && isDefender) {
     s.grapple ||= {escapeSuccesses:null,attempts:0};
@@ -493,58 +583,98 @@ async function acceptAdvance(payload) {
     s.stage = s.finalDamage > 0 ? "resolved" : "done";
     if (s.finalDamage === 0) s.note = [s.note, "No damage to apply."].filter(Boolean).join(" ");
   } else if (step === "undo" && s.stage === "done" && isGM && s.undo) {
-    const current = target.system.health.damage;
-    for (const key of VALID_DAMAGE) {
-      if (safeInt(current[key]) !== safeInt(s.undo.after[key])) {
-        throw new Error("Health has changed since the attack; use the Actor sheet to review instead of overwriting later changes");
+    if (s.undo.kind === "essence") {
+      if (!isSpirit(target)) throw new Error("Target is no longer a spirit; Essence undo requires manual review");
+      const current=spiritEssence(target);
+      if (current===null || current!==s.undo.after) {
+        throw new Error("Spirit Essence changed after application; do not overwrite later changes");
       }
+      s.stage="applying";
+      await updateMessage(msg,s);
+      await target.update({"system.advantages.essence.temporary":s.undo.before});
+      s.stage="done";
+      s.note="Damage undone by GM; previous Spirit Essence restored.";
+      s.undo=null;
+    } else {
+      if (isSpirit(target)) throw new Error("Target is now a spirit; previous wound data requires manual review");
+      const current=target.system?.health?.damage;
+      if (!current) throw new Error("Native health track is no longer available");
+      for (const key of VALID_DAMAGE) {
+        if (safeInt(current[key]) !== safeInt(s.undo.after[key])) {
+          throw new Error("Health has changed since the attack; use the Actor sheet to review instead of overwriting later changes");
+        }
+      }
+      s.stage = "applying";
+      await updateMessage(msg, s);
+      const changes = {};
+      const restored = {...target.system.health.damage};
+      for (const key of VALID_DAMAGE) {
+        const count = safeInt(s.undo.before[key]);
+        changes[`system.health.damage.${key}`] = count;
+        restored[key] = count;
+      }
+      Object.assign(changes, nativeHealthFields(target, restored));
+      await target.update(changes);
+      s.stage = "done";
+      s.note = "Damage undone by GM; prior health counts restored.";
+      s.undo = null;
     }
-    s.stage = "applying";
-    await updateMessage(msg, s);
-    const changes = {};
-    const restored = {...target.system.health.damage};
-    for (const key of VALID_DAMAGE) {
-      const count = safeInt(s.undo.before[key]);
-      changes[`system.health.damage.${key}`] = count;
-      restored[key] = count;
-    }
-    Object.assign(changes, nativeHealthFields(target, restored));
-    await target.update(changes);
-    s.stage = "done";
-    s.note = "Damage undone by GM; prior health counts restored.";
-    s.undo = null;
   } else if (step === "skip" && s.stage === "resolved" && isGM) {
     s.stage = "done";
     s.note = safeInt(s.finalDamage) > 0 ? "Not applied to Actor health (GM choice)." : "No damage to apply.";
   } else if (step === "apply" && s.stage === "resolved" && isGM) {
-    // Legacy zero-damage chat cards must never produce an Actor update.
+    // A zero result must not mutate Actor resources.
     if (safeInt(s.finalDamage) <= 0) {
       s.stage = "done";
       s.note = "No damage to apply.";
       return await advanceMessage(msg, s);
     }
-    // Mark as applying BEFORE mutating health to prevent an accidental double application.
-    s.stage = "applying";
-    await updateMessage(msg, s);
-    if (!target.system?.health?.damage || typeof CombatHelper?.ApplyDamageWithOverflow !== "function") {
-      throw new Error("Health model unsupported: left at APPLYING for manual review");
+    const model=healthMode(target);
+    if (model === "manual" || (s.targetHealthMode && model!==s.targetHealthMode)) {
+      throw new Error("Health model or Essence is unavailable/changed; GM must record damage manually");
     }
-    const before = Object.fromEntries(VALID_DAMAGE.map(k => [k, safeInt(target.system.health.damage[k])]));
-    const updated = foundry.utils.deepClone(target.system.health.damage);
-    const max = CombatHelper.GetMaxHealthLevels(target.system);
-    if (max < 1) throw new Error("Target has no native health track; inspect before resolving");
-    const applied = CombatHelper.ApplyDamageWithOverflow(updated, s.damageType, s.finalDamage, max);
-    const healthFields = nativeHealthFields(target, updated);
-    updated.woundlevel = healthFields["system.health.damage.woundlevel"];
-    updated.woundpenalty = healthFields["system.health.damage.woundpenalty"];
-    const changes = {"system.health.damage":updated};
-    for (const [key, value] of Object.entries(healthFields)) {
-      if (!key.startsWith("system.health.damage.")) changes[key] = value;
+    if (model === "essence") {
+      const before=spiritEssence(target);
+      if (before === null) throw new Error("Spirit has no valid Essence resource");
+      const after=Math.max(0,before-safeInt(s.finalDamage));
+      // Reserve the chat step before the only permitted GM document mutation.
+      s.stage="applying";
+      await updateMessage(msg,s);
+      if (before!==after) await target.update({"system.advantages.essence.temporary":after});
+      s.undo=before!==after?{kind:"essence",before,after}:null;
+      s.stage="done";
+      const taken=before-after;
+      s.note=taken===safeInt(s.finalDamage)
+        ? `Applied ${taken} damage to Spirit Essence (${before} → ${after}).`
+        : `Applied ${taken} to Spirit Essence (${before} → ${after}); remaining damage requires GM adjudication.`;
+    } else {
+      if (!target.system?.health?.damage ||
+          typeof CombatHelper?.ApplyDamageWithOverflow !== "function" ||
+          typeof CombatHelper?.GetMaxHealthLevels !== "function") {
+        throw new Error("Native health system unavailable; GM must resolve damage manually");
+      }
+      const max=CombatHelper.GetMaxHealthLevels(target.system);
+      if (max<1) throw new Error("Target has no native health track; GM must resolve manually");
+      // Verify native level fields before locking the card and writing health.
+      nativeHealthFields(target,target.system.health.damage);
+      s.stage="applying";
+      await updateMessage(msg,s);
+      const before=Object.fromEntries(VALID_DAMAGE.map(k=>[k,safeInt(target.system.health.damage[k])]));
+      const updated=foundry.utils.deepClone(target.system.health.damage);
+      const applied=CombatHelper.ApplyDamageWithOverflow(updated,s.damageType,s.finalDamage,max);
+      const healthFields=nativeHealthFields(target,updated);
+      updated.woundlevel=healthFields["system.health.damage.woundlevel"];
+      updated.woundpenalty=healthFields["system.health.damage.woundpenalty"];
+      const changes={"system.health.damage":updated};
+      for (const [key,value] of Object.entries(healthFields)) {
+        if (!key.startsWith("system.health.damage.")) changes[key]=value;
+      }
+      await target.update(changes);
+      s.undo={before,after:Object.fromEntries(VALID_DAMAGE.map(k=>[k,safeInt(updated[k])]))};
+      s.stage="done";
+      s.note=applied===s.finalDamage?"Applied to native Actor health.":
+        `Applied ${applied}; remainder requires GM adjudication (overflow).`;
     }
-    await target.update(changes);
-    s.undo = {before,after:Object.fromEntries(VALID_DAMAGE.map(k => [k,safeInt(updated[k])]))};
-    s.stage = "done";
-    s.note = applied === s.finalDamage ? "Applied to native Actor health." : `Applied ${applied}; remainder requires GM adjudication (overflow).`;
   } else {
     throw new Error("Step out of sequence or user does not control the required Actor");
   }
@@ -673,6 +803,7 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   if (!supportsFireMode(item,mode)) return notify("That weapon does not support the selected firing mode.");
   const spec=FIRE_MODES[mode]??FIRE_MODES.single;
   const stats=attackData(attacker,item);
+  if (stats.pool===null) return notify("Spirit Willpower is missing; enter the trait before attacking.");
   const difficulty=choice.difficulty==="0"||choice.difficulty===0||choice.difficulty==null
     ? clamp(stats.difficulty+spec.difficulty,2,10) : clamp(choice.difficulty,2,10);
   const modifier=clamp(choice.modifier,-50,50);
@@ -686,6 +817,7 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
     attribute:stats.attribute,ability:stats.ability,
     pool:split?split[0]:pool,difficulty,bonus:modifier,
     extraInfo:[`Target: ${target.name}`,
+      ...(stats.note?[stats.note]:[]),
       ...(mode!=="single"?[`Native firing mode: ${spec.caption} (+${spec.bonus} dice, +${spec.difficulty} difficulty)`]:[]),
       ...(split?[`Split action 1/${count}: pools ${split.join("/")}`]:[])]
   });
@@ -702,9 +834,11 @@ async function openGrapple({attackerActor = null, attackerToken = null} = {}) {
   const context = attackContext({attackerActor, attackerToken});
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
-  const base = Math.max(0, attributeValue(attacker, "strength") + abilityValue(attacker, "brawl"));
+  const dice=grappleDice(attacker,"start");
+  if (dice.pool===null) return notify("Spirit Willpower not configured; GM must resolve this grapple.");
+  const base=Math.max(0,dice.pool);
   const choice = await promptFields(`${attacker.name}: Grapple ${target.name}`, [
-    {name:"pool",label:"Strength + Brawl dice",value:base,min:0,max:100},
+    {name:"pool",label:dice.label,value:base,min:0,max:100},
     {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
   ], "Roll Grapple");
   if (!choice) return;
@@ -712,8 +846,8 @@ async function openGrapple({attackerActor = null, attackerToken = null} = {}) {
   const difficulty = clamp(choice.difficulty ?? 6, 2, 10);
   const successes = await nativeRoll(attacker, {
     origin:"attack",action:"Grapple / Hold",
-    attribute:"strength",ability:"brawl",pool,difficulty,
-    extraInfo:[`Target: ${target.name}`, "Grapple: opposed Strength + Brawl"]
+    attribute:dice.attribute,ability:dice.ability,pool,difficulty,
+    extraInfo:[`Target: ${target.name}`, dice.note||"Grapple: opposed Strength + Brawl"]
   });
   send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
     targetUuid:target.document.uuid,weaponId:null,successes,
@@ -747,11 +881,13 @@ async function clickAction(event) {
     const ammo=ammunitionUse(item,"single");
     if (!ammo.valid) return notify(`${item.name}: no ammunition for another attack.`);
     const stats=attackData(actor,item);
+    if (stats.pool===null) return notify("Spirit Willpower missing; GM must resolve the next attack.");
     const successes=await nativeRoll(actor,{
       origin:"attack",action:`${item?.name||"Unarmed Strike"} split attack ${index}/${state.combo.count}`,
       attribute:stats.attribute,ability:stats.ability,pool,
       difficulty:clamp(state.attackDifficulty||stats.difficulty,2,10),
-      extraInfo:[`Target: ${targetName}`,`Split action ${index} of ${state.combo.count}: ${pool} dice`]
+      extraInfo:[`Target: ${targetName}`,`Split action ${index} of ${state.combo.count}: ${pool} dice`,
+        ...(stats.note?[stats.note]:[])]
     });
     if (ammo.spend&&!await spendAmmunition(item,"single")) return notify("Ammo changed; ask GM to review attack.");
     return send({type:"continue",messageId:msg.id,index,targetUuid,successes});
@@ -762,16 +898,17 @@ async function clickAction(event) {
     if (!mayUse(game.user.id,contender)) return notify("Only the acting grappler (or GM) can respond.");
     if (action==="grapple-release") return send({type:"advance",messageId:msg.id,step:action});
     if (action==="grapple-none") return send({type:"advance",messageId:msg.id,step:"grapple-resist",choice:"none",successes:0});
-    const base=attributeValue(contender,"strength")+abilityValue(contender,"brawl");
-    const opts=await promptFields(`${contender.name}: ${action.replace("grapple-","")} (Strength + Brawl)`,[
-      {name:"pool",label:"Strength + Brawl dice",value:base,min:0,max:100},
+    const dice=grappleDice(contender,"contest");
+    if (dice.pool===null) return notify("Spirit Rage is missing; GM must resolve the grapple contest.");
+    const opts=await promptFields(`${contender.name}: ${action.replace("grapple-","")}`,[
+      {name:"pool",label:dice.label,value:dice.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
     ]);
     if (!opts) return;
     const successes=await nativeRoll(contender,{
       origin:"attack",action:`Grapple ${action.replace("grapple-","")}`,
-      attribute:"strength",ability:"brawl",pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
-      extraInfo:[`Grapple: ${actor.name} holding ${defender.name}`]
+      attribute:dice.attribute,ability:dice.ability,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
+      extraInfo:[`Grapple: ${actor.name} holding ${defender.name}`,...(dice.note?[dice.note]:[])]
     });
     return send({type:"advance",messageId:msg.id,
       step:action==="grapple-resist"?"grapple-resist":action,
@@ -780,18 +917,18 @@ async function clickAction(event) {
   if (["dodge", "block", "parry", "none"].includes(action) && state.stage === "defense") {
     if (!mayUse(game.user.id, defender)) return notify("Only the defender (or GM) can defend.");
     if (action === "none") return send({type:"advance", messageId:msg.id, step:"defense", choice:action, successes:0});
-    const abilities = {dodge:"athletics",block:"brawl",parry:"melee"};
-    const ability = abilities[action];
-    const splat = gameType(defender);
-    const defaultDifficulty = splat.includes("mage") ? ({dodge:6, block:8, parry:7}[action]) : 6;
-    const base = attributeValue(defender, "dexterity") + abilityValue(defender, ability);
-    const opts = await promptFields(`${defender.name}: ${action}`, [
-      {name:"pool",label:`Dexterity + ${ability} dice`,value:base,min:0,max:100},
+    const dice=defenseDice(defender,action);
+    if (dice.pool===null) return notify("Spirit Willpower is missing; GM must resolve this defense.");
+    const splat=gameType(defender);
+    const defaultDifficulty=splat.includes("mage")?({dodge:6,block:8,parry:7}[action]):6;
+    const opts=await promptFields(`${defender.name}: ${action}`, [
+      {name:"pool",label:dice.label,value:dice.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:defaultDifficulty,min:2,max:10}
     ]);
     if (!opts) return;
-    const successes = await nativeRoll(defender, {origin:"attack",action:`${action} defense vs ${actor.name}`,
-      attribute:"dexterity",ability,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10)});
+    const successes=await nativeRoll(defender,{origin:"attack",action:`${action} defense vs ${actor.name}`,
+      attribute:dice.attribute,ability:dice.ability,pool:clamp(opts.pool,0,100),
+      difficulty:clamp(opts.difficulty,2,10),extraInfo:dice.note?[dice.note]:[]});
     return send({type:"advance", messageId:msg.id, step:"defense", choice:action, successes});
   }
   if (action === "damage" && state.stage === "damage") {
@@ -799,6 +936,7 @@ async function clickAction(event) {
     const item = state.weaponId ? actor.items.get(state.weaponId) : null;
     if (state.weaponId && !item) return notify("Weapon was removed from attacker; GM must resolve manually.");
     const damage = defaultDamagePool(actor, item, state.netSuccesses);
+    if (damage.pool===null) return notify("Spirit Rage is missing; GM must resolve damage manually.");
     const opts = await promptFields(`${actor.name}: Roll Damage`, [
       {name:"pool",label:`Damage dice (includes ${damage.extra} attack bonus)`,value:damage.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
@@ -806,28 +944,32 @@ async function clickAction(event) {
     if (!opts) return;
     const successes = await nativeRoll(actor,{origin:"damage",action:`${state.weaponName} damage`,
       attribute:damage.attribute,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
-      extraInfo:[`Damage type: ${state.damageType}`,`Net attack successes: ${state.netSuccesses}`]});
+      extraInfo:[`Damage type: ${state.damageType}`,`Net attack successes: ${state.netSuccesses}`,
+        ...(damage.note?[damage.note]:[])]});
     return send({type:"advance", messageId:msg.id, step:"damage", successes});
   }
   if ((action === "soak" || action === "no-soak") && state.stage === "soak") {
     if (!mayUse(game.user.id, defender)) return notify("Only the defender (or GM) handles soak.");
     if (action === "no-soak") return send({type:"advance", messageId:msg.id, step:"soak", choice:"none", successes:0});
-    const pool = Math.max(0, safeInt(defender.system?.soak?.[state.damageType]));
-    const bonus = safeInt(defender.system?.settings?.soak?.[state.damageType]?.bonus);
-    const opts = await promptFields(`${defender.name}: Soak ${state.damageType}`, [
-      {name:"pool",label:"Soak dice (native soak + native bonus)",value:pool + bonus,min:0,max:100},
+    const dice=soakDice(defender,state.damageType);
+    if (dice.pool===null) return notify("Spirit Willpower is missing; GM must resolve soak manually.");
+    const opts=await promptFields(`${defender.name}: Soak ${state.damageType}`, [
+      {name:"pool",label:dice.label,value:dice.pool,min:0,max:100},
       {name:"difficulty",label:"Difficulty",value:6,min:2,max:10}
     ]);
     if (!opts) return;
-    const successes = await nativeRoll(defender,{origin:"soak",action:`Soak ${state.damageType} from ${actor.name}`,
-      attribute:"stamina",pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
-      extraInfo:[`Incoming damage successes: ${state.damage.successes}`]});
+    const successes=await nativeRoll(defender,{origin:"soak",action:`Soak ${state.damageType} from ${actor.name}`,
+      attribute:dice.attribute,pool:clamp(opts.pool,0,100),difficulty:clamp(opts.difficulty,2,10),
+      extraInfo:[`Incoming damage successes: ${state.damage.successes}`,...(dice.note?[dice.note]:[])]});
     return send({type:"advance",messageId:msg.id,step:"soak",choice:"roll",successes});
   }
   if ((action === "apply" || action === "skip") && state.stage === "resolved") {
     if (!game.user.isGM) return notify("Only a GM can finalize Actor health.");
     if (action === "apply") {
-      const confirmed = await promptFields(`Apply ${state.finalDamage} ${state.damageType} to ${defender.name}?`, [], "Confirm Apply");
+      const model=healthMode(defender);
+      if (model==="manual") return notify("Target's health model is unsupported; record damage manually.");
+      const resource=model==="essence"?"Essence":"health";
+      const confirmed = await promptFields(`Apply ${state.finalDamage} ${state.damageType} to ${defender.name}'s ${resource}?`, [], "Confirm Apply");
       if (!confirmed) return;
     }
     return send({type:"advance",messageId:msg.id,step:action});

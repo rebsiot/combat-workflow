@@ -1,18 +1,24 @@
-# WoD20 Combat Workflow v0.2.6 — Attack directly from your weapon sheet
+# WoD20 Combat Workflow v0.3.0 — Spirit and creature combat
 
-With one enemy targeted and a GM online, clicking **Attack** on an owned melee or ranged weapon now opens Combat Workflow with that weapon already selected. The workflow performs the attack roll once, then prompts the defender for Dodge, Block, Parry or No Defense before continuing through damage and soak.
+Combat Workflow now recognizes WoD20 **Spirit** creatures instead of trying to calculate a spirit's punch from nonexistent Dexterity and Brawl dots. It supports attacks in both directions between spirits and physical Actors.
 
-### What changed
-- Native WoD20 weapon **Attack** controls can launch Combat Workflow automatically. No second native attack roll or competing damage dialog opens.
-- The new per-client **Use Combat Workflow from weapon attacks** setting is on by default and can be turned off at any time.
-- Damage-only controls, unrelated rolls, Grapple, and attacks without one clear target retain their existing behavior.
-- The public README now starts with usage and installation; internal handoffs and test files are excluded from the release ZIP.
+### What's changed
 
-### Before updating
-Back up your world and current `stl-combat-workflow` module folder. Update to v0.2.6, restart Foundry and refresh player browsers. Your enabled/disabled setting in each world and saved Actor data remain unchanged.
+- **Spirits:** Willpower for basic attacks/defenses/soak, Rage for physical damage, Essence as the GM-managed health resource. Missing traits prompt a warning instead of a misleading tiny dice pool.
+- **Vampires, werewolves and physical creatures:** keep their native Actor Attributes, form-adjusted totals, weapon values, soak pools and wound tracks. A werewolf with Rage/Gnosis is not mistaken for a spirit.
+- **GM Apply/Undo:** Can apply post-soak wounds to a physical Actor or reduce a spirit's temporary Essence, with guarded Undo. Missing Essence and special Corpus resources remain manual; existing character data is not migrated.
+- **Preserved:** Native weapon Attack handoff, normal chat turn sequence, Grapple, ranged modes and the separate Player Magick/Paradox systems.
 
-**Testing:** Automated checks passed before publication if the release workflow shows success. Native weapon-sheet integration and multi-client Foundry operation still require live validation. If it behaves unexpectedly, disable the client auto-start setting or restore v0.2.5.
+### Before you update
 
-Install/update manifest: https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json
+Back up the Foundry world and the existing `stl-combat-workflow` module folder. Install v0.3.0 and refresh clients. **Applying Essence is a real Actor update**; restoring the previous module does not automatically restore health or Essence values. Retain a world backup.
 
-Full details: [CHANGELOG.md](https://github.com/rebsiot/combat-workflow/blob/main/CHANGELOG.md)
+### Known limits and verification
+
+This implements common physical combat pools; it does not automate every W20/M20 supernatural rule. Spirit Charms, cross-realm contact, different aggravated-damage conventions, regeneration, Fortitude/Gifts, Wraith Corpus and other special resources remain GM decisions. The attack dialog allows a damage-type override.
+
+**Automated tests:** native dice integration mocks and spirit/physical combat regression checks. **Live Foundry v14:** the new cross-splat flow has not yet been confirmed by a GM and player together. First live test: spirit attacks a mortal, then a mortal attacks a spirit; check the roll pools, Essence application and guarded Undo.
+
+**Rollback:** [v0.2.6](https://github.com/rebsiot/combat-workflow/releases/tag/v0.2.6), with a matching world snapshot if play has changed Actor data.
+
+**Install:** https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json

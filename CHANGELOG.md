@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.0 — 2026-11-14 — Splat-aware spirit / physical combat
+
+- Add WoD20-specific Spirit recognition (`Creature` Actor, `settings.variant="spirit"`, or native `Spirit` type). Do **not** infer spirit from Rage/Gnosis alone. Werewolf, Vampire, Mage, mortal and generic physical Creature Actors continue to use native Attribute totals (including active werewolf form), Ability, item, soak and wound track data.
+- For spirit physical attack/dodge/block/parry/soak, use the existing rollable Willpower Advantage. Basic damage uses Rage plus weapon bonus and qualifying net successes. `Gnosis` remains for powers/mental-social actions. For natural spirit punch/kick/unarmed attacks, default to lethal (M20 convention); allow explicit damage override for alternate W20/Charm rulings. Missing spirit roll traits abort with an actionable warning, not a silent zero/one-die roll.
+- For a Spirit **defender**, the existing ChatMessage sequence stores the target's `healthMode`. A GM may apply post-soak damage to native `advantages.essence.temporary`, preserving permanent/max, and guarded Undo checks for later Essence changes. No automatic writes until GM confirms; zero damage and invalid Essence do not write any Actor document.
+- For the usual physical Actor health model, retain native WoD20 `CombatHelper.ApplyDamageWithOverflow`, damage types, penalties, and guarded undo. Verify native health model before locking the card. Older cards cannot silently write Spirit Essence. Wraith/Corpus and missing/unknown health models are left for GM manual resolution.
+- Spirit Grapple/Hold prompts use Willpower for an initial attempt and Rage for physical contests; the dialog allows GM adjustments, and special Charms/realm restrictions remain manual.
+- Regression mocks cover Spirit→Mage and Mage→Spirit end-to-end chat stages and GM Apply/Undo, missing Essence/traits, Essence conflict, W20 form-dependent Attributes, V20 firearm/bashing, other physical creatures and Wraith manual health handling. Preserve no-duplicate-roll native weapon launching and all existing components.
+- No migrations or new module IDs, Player Magick/dice/Paradox hooks, macro/hotbar writes or automatic regeneration. Public documentation/release notes remain user-first. **Live Foundry v14 two-client cross-splat testing pending.**
+
+
 ## v0.2.6 — 2026-11-14 — Native weapon Attack launch
 
 - Clicking WoD20's own melee/ranged weapon **Attack** control now starts Combat Workflow with that weapon already selected when the attacker owns the Actor, one defender is targeted and a GM is online. This intercepts the *launcher before the native attack roll*, so no duplicate weapon roll or competing native damage dialog is produced.
