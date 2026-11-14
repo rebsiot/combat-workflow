@@ -1,17 +1,25 @@
-# WoD20 Combat Workflow v0.3.2 — Review incomplete NPC stats
+# WoD20 Combat Workflow v0.3.3 — Candidate
 
-Combat Workflow now offers a **GM-only stat review** when a non-player character has a missing or untrained (0) combat Ability.
+## Default attacks on every character
 
-For example, Catfiend's **Punch** has Dexterity 1 + Brawl 0, so the default attack is legitimately one die. If the character is unfinished, the GM may enter temporary **Dexterity 3 + Brawl 2** and roll **five dice** instead. The value is for this roll only; **the Actor sheet is not changed**. Accept the existing zero if being untrained is intentional.
+Bite, Kick, and Punch appear by default in the Attack chooser, and as read-only clickable rows in the native Natural Weapons section when an Actor doesn't already own the named weapon. These are virtual actions: no Items are created or written to Actors, and all existing customized copies take precedence.
 
-This works with supported NPC Attack, Defense, Grapple, Damage and Soak steps. Missing Spirit Willpower/Rage and unknown native NPC soak pools can also be reviewed. It never invents stats or automatically edits character data.
+- Bite: Dexterity + Brawl, difficulty 5, damage Strength +1 **bashing** by default.
+- Kick: Dexterity + Brawl, difficulty 7, damage Strength +1 **bashing**.
+- Punch: Dexterity + Brawl, difficulty 6, damage Strength **bashing**.
 
-The option **Review untrained NPC combat stats (GM)** is enabled by default per GM client and can be switched off. Other player and PC rolls are unchanged.
+Damage type for Bite varies with physiology; use an edited owned Bite Item or choose Lethal/Aggravated when applicable. Spirits keep their existing splat-aware combat dice rules. Basic maneuvers continue into the native ChatMessage, defender reaction, damage/soak and optional split attacks.
 
-**Upgrade:** Back up your Foundry world and the existing module folder `Data/modules/stl-combat-workflow`. Install the complete v0.3.2 ZIP or update from the manifest, restart Foundry and refresh clients.
+## Data safety and compatibility
 
-**First test:** As GM, target an opponent with Catfiend, click Punch, accept/adjust Dexterity and Brawl, then verify the native WoD20 dice card shows the selected number of dice. Confirm Catfiend's saved stats are unchanged.
+No automatic character/Item import, Actor migration, compendium rewrite, or hotbar modification. Existing Bite/Kick/Punch weapons are neither replaced nor duplicated. GM-confirmed health changes through earlier combat workflows remain unrelated and unmodified.
 
-**Verification:** Automated and mock tests only until tested in a live Foundry v14 world. No Actor migrations. If necessary, turn off the client setting or restore [v0.3.1](https://github.com/rebsiot/combat-workflow/releases/tag/v0.3.1); code rollback does not reverse wound/Essence changes from gameplay.
+Foundry v14 with WoD20 v7.3.1+; automated CI/mocks only at candidate stage. Back up world/module folder before testing. To roll, select one attacker and target exactly one defender, or click a default from its Combat sheet with exactly one target. A GM must be online.
 
-Install manifest: https://raw.githubusercontent.com/rebsiot/combat-workflow/main/module.json
+## Upgrade and rollback
+
+Candidate only; stable v0.3.2 remains published. Back up `Z:\\Data\\modules\\stl-combat-workflow` and the Foundry world. Install the complete inner ZIP under `Z:\\Data\\modules`, with `module.json` directly inside `stl-combat-workflow`. Restart Foundry and Shift+F5.
+
+Rollback: restore v0.3.2 code and restart/hard-refresh. New virtual actions create no Actor data; existing applied combat wounds and completed rolls are not undone by code rollback.
+
+**Source:** GitHub repo `rebsiot/combat-workflow`, verified source baseline main `2f6cf4cc7e671766ccc684abc605d0e7320dbc1a` (implementation v0.3.2 commit `7258a7fdb2c622c688b2611830b73d75117fe99e`). Branch `feature/basic-maneuvers-v0.3.3`. No live installation/release verified for v0.3.3.
