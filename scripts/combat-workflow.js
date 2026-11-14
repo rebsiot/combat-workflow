@@ -630,6 +630,11 @@ async function acceptAdvance(payload) {
       return await advanceMessage(msg, s);
     }
     const model=healthMode(target);
+    // A legacy card did not capture a Spirit's special Essence health model;
+    // never let an old wound-based card start writing this resource.
+    if (isSpirit(target) && s.targetHealthMode !== "essence") {
+      throw new Error("Older combat card has no verified Spirit Essence model; restart the attack");
+    }
     if (model === "manual" || (s.targetHealthMode && model!==s.targetHealthMode)) {
       throw new Error("Health model or Essence is unavailable/changed; GM must record damage manually");
     }
