@@ -36,7 +36,7 @@ const ctx=vm.createContext({console,Math,Number,String,Promise,setTimeout,clearT
   ChatMessage:{getSpeaker:({actor})=>({alias:actor.name}),create:async data=>{
     const msg={id:'m'+(messages.length+1),flags:data.flags,content:data.content};
     messages.push(msg);return msg;}},
-  fromUuid:async uuid=>({'Actor.a':actor,'Actor.d':defender,'Scene.Token.d':{actor:defender}}[uuid]??null
+  fromUuid:async uuid=>({'Actor.a':actor,'Actor.d':defender,'Scene.Token.d':{actor:defender}}[uuid]??null)
 });
 vm.runInContext(source,ctx);
 const evaluate=x=>vm.runInContext(x,ctx);
