@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.6 — 2026-11-14 — Native weapon Attack launch
+
+- Clicking WoD20's own melee/ranged weapon **Attack** control now starts Combat Workflow with that weapon already selected when the attacker owns the Actor, one defender is targeted and a GM is online. This intercepts the *launcher before the native attack roll*, so no duplicate weapon roll or competing native damage dialog is produced.
+- With no/ambiguous target, no active GM, disabled client setting, or an unsupported Item, the original WoD20 weapon dialog remains in control. Damage-only rolls, Grapple Items, native powers and unrelated actions are unchanged.
+- Added an enabled-by-default **client** setting, `Use Combat Workflow from weapon attacks`, for immediate opt-out. The existing lightning-bolt Actions menu and character-sheet Combat shortcut remain functional.
+- Added native-launch and no-duplicate-roll regression mocks, preserving the full v0.2.5 attack/defense/damage/soak/Grapple/health paths. No Actor, Item or chat data migration.
+- Refocused the public README around first use and safety, while retaining full historical notes here. Future release ZIPs exclude internal project handoffs and test sources; the repository history remains intact. Release assets retain the original `stl-combat-workflow` module folder and ID.
+- **Testing:** CI/static/mock tests only. Native sheet handoff and two-client Foundry v14 combat behavior require a live test on the installed `worldofdarkness` version. Source review used upstream WoD20 7.3.2's `ActionHelper.RollDialog` and `DialogWeaponV2._rollAttack` signatures; compatibility with different system builds is not guaranteed.
+
+
 ## v0.2.5 — 2026-10-18 — Clearer Foundry module name
 
 - Display as **WoD20 Combat Workflow** in Foundry's Module Management list instead of **STL Combat Workflow**.

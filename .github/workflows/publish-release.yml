@@ -9,6 +9,7 @@ on:
       - 'tests/**'
       - 'README.md'
       - 'CHANGELOG.md'
+      - 'RELEASE_NOTES.md'
       - '.github/workflows/publish-release.yml'
 permissions:
   contents: write
@@ -22,6 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check scripts/combat-workflow.js
+          node --check scripts/tutorial.js
           node -e "JSON.parse(require('fs').readFileSync('module.json', 'utf8'))"
           for file in tests/*.cjs; do node "$file"; done
       - name: Package and publish release
@@ -38,8 +40,12 @@ jobs:
             exit 0
           fi
           mkdir -p build/stl-combat-workflow
-          cp module.json README.md CHANGELOG.md LICENSE 16-HANDOFF-COMBAT-WORKFLOW.md build/stl-combat-workflow/
-          cp -R scripts styles tests build/stl-combat-workflow/
+          cp module.json README.md CHANGELOG.md LICENSE build/stl-combat-workflow/
+          cp -R scripts styles build/stl-combat-workflow/
           ( cd build && zip -q -r "../$archive" stl-combat-workflow )
           unzip -t "$archive"
-          gh release create "$tag" "$archive" --target "$GITHUB_SHA" --title "STL Combat Workflow $tag" --notes-file CHANGELOG.md
+          unzip -Z1 "$archive" | grep -qx 'stl-combat-workflow/module.json'
+          if unzip -Z1 "$archive" | grep -E 'HANDOFF|(^|/)tests/|(^|/)\.github/'; then
+            echo "Internal source leaked into installable module package"; exit 1
+          fi
+          gh release create "$tag" "$archive" --target "$GITHUB_SHA" --title "WoD20 Combat Workflow $tag" --notes-file RELEASE_NOTES.md

@@ -1,4 +1,4 @@
-// STL Combat Workflow 0.2.4. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.2.6. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -616,7 +616,7 @@ async function nativeRoll(actor, {origin, action, attribute, ability, pool, diff
 }
 async function promptFields(title, fields, confirmText = "Roll") {
   const content = `<div class="stl-combat-prompt">${fields.map(f => {
-    if (f.type === "select") return `<label>${esc(f.label)}<select name="${esc(f.name)}">${f.options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("")}</select></label>`;
+    if (f.type === "select") return `<label>${esc(f.label)}<select name="${esc(f.name)}">${f.options.map(o => `<option value="${esc(o.value)}"${f.selectedValue != null && String(f.selectedValue) === String(o.value) ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select></label>`;
     return `<label>${esc(f.label)}<input name="${esc(f.name)}" type="number" step="1" min="${esc(f.min ?? -100)}" max="${esc(f.max ?? 100)}" value="${esc(f.value ?? 0)}"></label>`;
   }).join("")}</div>`;
   return await foundry.applications.api.DialogV2.input({
@@ -641,13 +641,13 @@ function attackContext({attackerActor = null, attackerToken = null} = {}) {
   if (!activeGM()) { notify("A GM must be online to coordinate combat."); return null; }
   return {attacker,attackerUuid,target};
 }
-async function open({attackerActor = null, attackerToken = null} = {}) {
+async function open({attackerActor = null, attackerToken = null, weaponId = null} = {}) {
   const context = attackContext({attackerActor, attackerToken});
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
   const weapons = attackWeaponList(attacker);
   const fields = [
-    {name:"weapon",label:"Weapon",type:"select",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
+    {name:"weapon",label:"Weapon",type:"select",selectedValue:weaponId ?? "",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
     {name:"difficulty",label:"Attack difficulty (0 = native default)",value:0,min:0,max:10},
     {name:"modifier",label:"Additional attack dice (+/-)",value:0,min:-50,max:50},
     {name:"damageOverride",label:"Damage type",type:"select",options:[
@@ -661,6 +661,9 @@ async function open({attackerActor = null, attackerToken = null} = {}) {
   }
   const choice = await promptFields(`${attacker.name}: Attack ${target.name}`,fields,"Roll Attack");
   if (!choice) return;
+  // When launched from a native weapon control, the same weapon is preselected.
+  // Ignore missing/unsuitable items rather than silently substituting Unarmed.
+  if (weaponId && !weapons.some(w => w.id === weaponId)) return notify("Weapon is no longer available for an attack.");
   const item = choice.weapon ? attacker.items.get(choice.weapon) : null;
   if (choice.weapon && !item) return notify("Weapon no longer exists.");
   if (isGrappleManeuver(item)) return notify("Use Actions → Grapple for this maneuver.");
@@ -893,6 +896,43 @@ Hooks.on("renderActorSheetV2", (app, root) => {
   queueMicrotask(() => addSheetCombatButtons(app, root));
 });
 
+// Intercept native WoD20's *weapon attack launcher*, not completed ChatMessages.
+// This avoids a second attack roll and the system's competing damage dialog.
+// Damage-only controls, absent targets/GM, and disabled client preferences retain
+// the exact upstream ActionHelper.RollDialog behavior.
+function shouldStartFromNativeWeapon(dataset, actor) {
+  if (game.system?.id !== "worldofdarkness" || !actor || !dataset) return false;
+  if (!["Melee","Ranged"].includes(dataset.object) || String(dataset.rollitem) !== "true") return false;
+  if (!dataset.itemid || !mayUse(game.user?.id, actor)) return false;
+  if (!DiceRoller || !activeGM() || game.user?.targets?.size !== 1) return false;
+  if (game.settings?.get && game.settings.get(MODULE,"autoWeaponAttacks") === false) return false;
+  const item=actor.items?.get?.(dataset.itemid);
+  if (!item || item.type !== (dataset.object === "Melee" ? "Melee Weapon" : "Ranged Weapon")) return false;
+  if (item.system?.attack?.isrollable === false || isGrappleManeuver(item)) return false;
+  return true;
+}
+function installNativeWeaponLauncher(ActionHelper) {
+  if (typeof ActionHelper?.RollDialog !== "function") return false;
+  const previous=ActionHelper.RollDialog;
+  if (previous.__stlCombatWorkflowWrapped) return true;
+  const wrapper=async function(...args) {
+    const [dataset,actor]=args;
+    if (!shouldStartFromNativeWeapon(dataset,actor)) return previous.apply(this,args);
+    try {
+      // Native sheet and Actor API both reach this method. Route only when a
+      // valid targeted attack is being initiated; the workflow rolls ONCE.
+      return await open({attackerActor:actor,weaponId:dataset.itemid});
+    } catch(error) {
+      console.error(MODULE+" | Native weapon launch failed",error);
+      notify("Combat Workflow could not start: "+error.message,"error");
+      // Do not fall back after an attempted roll: it could double-roll.
+    }
+  };
+  wrapper.__stlCombatWorkflowWrapped=true;
+  ActionHelper.RollDialog=wrapper;
+  return true;
+}
+
 Hooks.once("ready", async () => {
   if (game.system.id !== "worldofdarkness") return;
   try {
@@ -905,6 +945,19 @@ Hooks.once("ready", async () => {
   } catch (error) {
     console.error(`${MODULE} | WoD20 native API missing`, error);
     return notify("STL Combat Workflow cannot load WoD20 native APIs.", "error");
+  }
+  game.settings.register(MODULE,"autoWeaponAttacks",{
+    name:"Use Combat Workflow from weapon attacks",
+    hint:"When you have exactly one target and a GM is online, using a weapon's native Attack control starts Combat Workflow with that weapon selected. Other rolls and damage-only buttons remain native.",
+    scope:"client",config:true,type:Boolean,default:true
+  });
+  try {
+    const nativeActions=await import("/systems/worldofdarkness/module/scripts/action-helpers.js");
+    if (!installNativeWeaponLauncher(nativeActions.default)) {
+      console.warn(MODULE+" | Native weapon launch unavailable; manual Actions menu remains available.");
+    }
+  } catch(error) {
+    console.warn(MODULE+" | Native weapon launcher could not be installed; manual Actions menu remains available.",error);
   }
   const api = Object.freeze({open,openGrapple});
   game.modules.get(MODULE).api = api;
