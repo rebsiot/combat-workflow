@@ -503,7 +503,7 @@ async function acceptContinue(payload) {
   if (!attacker||!target||!mayUse(payload.userId,attacker)) throw new Error("Cannot continue: attacker, target or permission unavailable");
   const newIndex=state.combo.index+1;
   if (safeInt(payload.index)!==newIndex) throw new Error("Out-of-sequence multiple attack");
-  const item=state.weaponId?attacker.items.get(state.weaponId):null;
+  const item=workflowWeapon(attacker,state.weaponId,state.basicManeuver);
   if (state.weaponId&&!item) throw new Error("Weapon removed during multiple attacks");
   const prior=foundry.utils.deepClone(state);
   prior.combo.continued=true;
@@ -536,7 +536,10 @@ async function acceptStart(payload) {
   const target = await getActor(payload.targetUuid);
   if (!attacker || !target || !mayUse(payload.userId, attacker)) throw new Error("Missing attacker/target or no attacker ownership");
   if (payload.weaponId && !weaponList(attacker).some(i => i.id === payload.weaponId)) throw new Error("Weapon not owned by attacker");
-  const item = payload.weaponId ? attacker.items.get(payload.weaponId) : null;
+  const basicManeuver=payload.basicManeuver||null;
+  if(basicManeuver&&(!validBasicManeuver(basicManeuver)||payload.weaponId))
+    throw new Error("Invalid basic maneuver selection");
+  const item=workflowWeapon(attacker,payload.weaponId,basicManeuver);
   const successes = clamp(payload.successes, 0, 100);
   const state = {
     schema:1,
@@ -546,6 +549,7 @@ async function acceptStart(payload) {
     attackerName:attacker.name,
     targetName:target.name,
     weaponId:item?.id || null,
+    basicManeuver,
     weaponName:payload.maneuver === "hold" ? "Grapple / Hold" : (item?.name || "Unarmed Strike"),
     damageType:effectiveDamageType(item, target, payload.damageOverride, attacker),
     targetHealthMode:healthMode(target),
@@ -918,14 +922,18 @@ function attackContext({attackerActor = null, attackerToken = null} = {}) {
   if (!activeGM()) { notify("A GM must be online to coordinate combat."); return null; }
   return {attacker,attackerUuid,target};
 }
-async function open({attackerActor = null, attackerToken = null, weaponId = null} = {}) {
+async function open({attackerActor = null, attackerToken = null, weaponId = null, defaultManeuver = null} = {}) {
   const context = attackContext({attackerActor, attackerToken});
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
   const weapons = attackWeaponList(attacker);
+  if(defaultManeuver&&!validBasicManeuver(defaultManeuver))return notify("Unknown basic maneuver.");
+  const selectedBasic=defaultManeuver
+    ? ownedBasicWeapon(attacker,defaultManeuver)?.id??BASIC_PREFIX+defaultManeuver
+    : null;
   const spiritRating=isSpirit(attacker)?spiritTrait(attacker,"willpower"):null;
   const fields = [
-    {name:"weapon",label:"Weapon",type:"select",selectedValue:weaponId ?? "",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
+    {name:"weapon",label:"Weapon",type:"select",selectedValue:weaponId ?? selectedBasic ?? "",options:[{value:"",label:"Unarmed Strike"},...attackOptions(attacker)]},
     ...(isSpirit(attacker)?[{name:"spiritRating",type:"info",
       label:"Spirit attack (Willpower rating)",
       value:spiritRating===null?"Not configured":spiritRating+" dice before weapon accuracy and modifiers"}]:[]),
@@ -945,8 +953,11 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   // When launched from a native weapon control, the same weapon is preselected.
   // Ignore missing/unsuitable items rather than silently substituting Unarmed.
   if (weaponId && !weapons.some(w => w.id === weaponId)) return notify("Weapon is no longer available for an attack.");
-  const item = choice.weapon ? attacker.items.get(choice.weapon) : null;
-  if (choice.weapon && !item) return notify("Weapon no longer exists.");
+  const picked=String(choice.weapon??"");
+  const basicManeuver=picked.startsWith(BASIC_PREFIX)?picked.slice(BASIC_PREFIX.length):null;
+  if(basicManeuver&&!validBasicManeuver(basicManeuver))return notify("Invalid basic maneuver.");
+  const item=basicManeuver?basicWeapon(basicManeuver):(picked?attacker.items.get(picked):null);
+  if(picked&&!item)return notify("Weapon no longer exists.");
   if (isGrappleManeuver(item)) return notify("Use Actions → Grapple for this maneuver.");
   const count=clamp(choice.attacks||1,1,4);
   const mode=choice.fireMode||"single";
@@ -985,7 +996,7 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   });
   if (ammo.spend && !await spendAmmunition(item,mode)) return notify("Ammo changed before expenditure; ask the GM to review this roll.");
   send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
-    targetUuid:target.document.uuid,weaponId:item?.id||null,successes:success,
+    targetUuid:target.document.uuid,weaponId:item?.id||null,basicManeuver,successes:success,
     damageOverride:choice.damageOverride,maneuver:"strike",firingMode:mode,attackDifficulty:difficulty,
     combo:split?{index:1,count,pools:split,continued:false}:null});
 
@@ -1040,7 +1051,7 @@ async function clickAction(event) {
     if (state.combo.continued||state.combo.index>=state.combo.count) return notify("This attack sequence is already complete.");
     const index=state.combo.index+1;
     const pool=state.combo.pools[index-1];
-    const item=state.weaponId?actor.items.get(state.weaponId):null;
+    const item=workflowWeapon(actor,state.weaponId,state.basicManeuver);
     if (state.weaponId&&!item) return notify("The attacker's weapon was removed.");
     const targets=[...game.user.targets];
     if (targets.length>1) return notify("Target only one defender for the next attack.");
@@ -1120,7 +1131,7 @@ async function clickAction(event) {
   }
   if (action === "damage" && state.stage === "damage") {
     if (!mayUse(game.user.id, actor)) return notify("Only the attacker (or GM) rolls damage.");
-    const item = state.weaponId ? actor.items.get(state.weaponId) : null;
+    const item = workflowWeapon(actor,state.weaponId,state.basicManeuver);
     if (state.weaponId && !item) return notify("Weapon was removed from attacker; GM must resolve manually.");
     const damage = defaultDamagePool(actor, item, state.netSuccesses);
     const reviewed=await reviewGMCombatPool(actor,{
