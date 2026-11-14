@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.3 — 2026-11-14 (candidate — live test pending)
+- Display Bite, Kick, and Punch on all supported native WoD20 Combat sheets, using read-only virtual maneuvers only when the Actor lacks the corresponding Item.
+- Make all three available in Combat Workflow's Attack chooser for any Actor, using M20 Combat Library defaults: Bite Dex+Brawl diff 5, Str+1 B; Kick Dex+Brawl diff 7, Str+1 B; Punch Dex+Brawl diff 6, Str B.
+- Preserve an existing customized Bite/Kick/Punch Item in place of the corresponding virtual entry. No Item creation, Actor migration, compendium edits, macro/hotbar writes or history changes.
+- Preserve basic-maneuver identity through authoritative chat, damage and split-attack phases; validate requested maneuver keys.
+- Automated mock tests and candidate package checks added. Live Foundry verification pending; no release/merge implied.
+
+
 ## v0.3.2 — 2026-11-14 — GM review of incomplete NPC combat stats
 
 - When the GM rolls for a non-PC with a missing/untrained (zero) combat Ability, offer an optional **Review combat stats** prompt before native WoD20 dice are rolled. Show current Attribute and Ability ratings; the GM can keep an intentionally untrained zero or enter temporary ratings for that roll. A missing Attribute also prompts. No Actor/Item/flag mutation, migration, or permanent combat bonus; the changed ratings appear only in the current roll's dice count and chat explanation.
