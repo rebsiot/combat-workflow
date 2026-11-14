@@ -41,15 +41,17 @@ To opt out on your own client, turn off **Use Combat Workflow from weapon attack
 
 This integration routes the native weapon *launcher* into Combat Workflow; it does not inspect or copy successes from an attack that already rolled. The WoD20 system's own complex weapon-dialog-only features (for example, spray fire or specialist modifiers) remain available by disabling auto-launch for that client.
 
-### Vampires, werewolves, spirits and other creatures (v0.3.0)
+### Vampires, werewolves, spirits and other creatures (v0.3.1)
 
 The attacker and defender are resolved **independently** using their actual WoD20 Actor type:
 
-- **Spirits:** WoD20 **Creature → Spirit** uses **Willpower** for physical attacks, defense and soak; **Rage** for base physical damage; and **Essence** for health. The default unarmed/punch/kick Spirit strike is *lethal* (M20-oriented). A GM can override damage type in the attack dialog for W20-style aggravated attacks, Charms or unusual cases. Gnosis is reserved for spiritual/mental actions and Charms; it is not added to a standard punch.
+- **Spirits:** WoD20 **Creature → Spirit** uses the displayed **permanent Willpower rating** for physical attacks, defense and soak; permanent **Rage** for base physical damage; and **Essence** for health. The default unarmed/punch/kick Spirit strike is *lethal* (M20-oriented). A GM can override damage type in the attack dialog for W20-style aggravated attacks, Charms or unusual cases. Gnosis is reserved for spiritual/mental actions and Charms; it is not added to a standard punch.
 - **Werewolves and other physical creatures:** use current native Attribute totals (including the active form), Abilities, item bonuses and native soak by damage type. Rage and Gnosis **do not** cause a werewolf to be classified as a Spirit.
 - **Vampires:** continue native attack/soak pools, with the existing bashing/firearm treatment. Supernatural Discipline effects (Fortitude, Celerity, regeneration, etc.) depend on their actual system/Item implementation and still require Storyteller oversight.
 - **GM damage application:** a normal creature uses its native wound-level track. A Spirit uses `system.advantages.essence.temporary`. The GM explicitly chooses when to apply damage and can undo it only while the affected resource still matches the recorded post-attack value. No Essence resource? **Record Only**—the module will not invent one or write mortal wound boxes.
 - **Wraith / Corpus and other nonstandard health models:** damage can be rolled and recorded but **not applied automatically** to a guessed resource. The GM must handle Corpus, chimerical harm, cross-realm contact, and other supernatural exceptions.
+
+**Native Spirit Punch fix (v0.3.1):** Click Punch on the Creature (Spirit) combat sheet after targeting exactly **one** defender and with an active GM. The module intercepts that sheet click before WoD20 can roll the misleading Dexterity + Brawl pool. Captain Marsh's displayed Willpower 7 means **seven base dice to hit**; a stale WoD20 calculated `roll: 1` cannot replace his permanent rating. The attack prompt now shows the calculated Willpower dice before rolling. Without exactly one target (or if the GM is offline), the module warns **without rolling**. Ordinary physical Actors retain their previous native fallback. The per-client auto-weapon setting still lets a user explicitly choose native rolls instead.
 
 This is a basic physical combat resolver, **not** automation for Gifts, Charms, Spheres, supernatural immunities, environmental effects, or the full W20/M20 rules. If a Spirit's Willpower or Rage is missing, the workflow warns and does not silently roll a 0–2 die pool. Spirit grapple prompts also use Willpower for the initial coordination roll and Rage for physical escape/hold contests; the GM may adjust these for the situation.
 
@@ -65,8 +67,8 @@ Players can replay the short tutorial from **Actions → Quick tutorial**. A fir
 
 - Attackers/defenders act only through Actors they control, or as GM. Only the GM applies/undoes health. No automatic mass import or data migration occurs.
 - Native WoD20 dice and chat messages are retained. Combat Workflow does **not** add a second dice system or process Paradox.
-- **Beta / field testing:** v0.3.0's splat-aware logic has automated tests covering Spirit ↔ Mage combat, Essence apply/undo and normal werewolf/vampire/creature calculations. This is **not** yet a live Foundry GM+player verification. The v0.2.6 native-weapon launcher, v0.2.4 chat layout and supernatural edge cases also need a two-client smoke test. Use a backed-up test world first.
-- Rollback: disable the new client setting for immediate return to WoD20's native weapon launcher, or restore the [v0.2.6 module release](https://github.com/rebsiot/combat-workflow/releases/tag/v0.2.6). Restoring module code does **not** reverse existing wound or Essence changes. Restore a matching world snapshot if needed.
+- **Beta / field testing:** v0.3.1's Spirit Punch safeguard and splat-aware logic have automated tests covering Spirit ↔ Mage combat, Essence apply/undo and normal werewolf/vampire/creature calculations. This is **not** yet a live Foundry GM+player verification. The native-weapon launcher, chat layout and supernatural edge cases also need a two-client smoke test. Use a backed-up test world first.
+- Rollback: disable the new client setting for immediate return to WoD20's native weapon launcher, or restore the [v0.3.0 module release](https://github.com/rebsiot/combat-workflow/releases/tag/v0.3.0). Restoring module code does **not** reverse existing wound or Essence changes. Restore a matching world snapshot if needed.
 
 For changes and older versions, see the [changelog](CHANGELOG.md), [releases](https://github.com/rebsiot/combat-workflow/releases), and [issues](https://github.com/rebsiot/combat-workflow/issues).
 

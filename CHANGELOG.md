@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.1 — 2026-11-14 — Creature (Spirit) Punch dice bug
+
+- Fix Spirit Willpower 7 displaying a **one-die** Punch attack when the derived WoD20 `advantages.willpower.roll` was stale or reduced: combat now reads `permanent` rating first, falling back to `roll` only if permanent is absent. The same applies to Spirit Rage for basic physical damage and contest rolls.
+- Prevent unmodified WoD20's native Dexterity+Brawl Punch dialog from running on a Spirit with no target or no active GM. These conditions now warn and make **no attack roll** instead. Ordinary nonspirit Actors preserve their native fallback; client opt-out still explicitly restores WoD20 native behavior.
+- Add capture-phase handling of WoD20 Creature (Spirit) weapon Attack rows, independent of whether the upstream sheet has already cached the original `ActionHelper.RollDialog` method. Prevent duplicate workflows/attacks by stopping only eligible Spirit weapon clicks, then route through the existing single-target Combat Workflow with the original Item preselected.
+- Show a clear Spirit Willpower dice preview in the attack prompt (base rating before weapon accuracy or modifiers). Preserve normal Mage/Vampire/Werewolf/other physical creature behavior, Spirit Essence apply/undo, and other combat macros.
+- Add regression mock using Captain Marsh's visible Willpower 7 / Rage 5 and a deliberately stale roll value 1; check sheet capture, no-target/no-GM warnings, per-client opt-out, and absence of double native rolls. Foundry v14 live verification remains pending.
+
+
 ## v0.3.0 — 2026-11-14 — Splat-aware spirit / physical combat
 
 - Add WoD20-specific Spirit recognition (`Creature` Actor, `settings.variant="spirit"`, or native `Spirit` type). Do **not** infer spirit from Rage/Gnosis alone. Werewolf, Vampire, Mage, mortal and generic physical Creature Actors continue to use native Attribute totals (including active werewolf form), Ability, item, soak and wound track data.

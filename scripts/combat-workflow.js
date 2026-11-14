@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.0. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.1. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -38,7 +38,10 @@ function isSpirit(actor) {
 }
 function spiritTrait(actor,key) {
   const stat=actor?.system?.advantages?.[key];
-  const raw=stat?.roll ?? stat?.permanent;
+  // Spirits use the trait's permanent rating for combat. WoD20's derived
+  // .roll value can be a lower temporary pool or a stale/default value.
+  // Using .roll here caused rated Willpower 7 spirits to roll one die.
+  const raw=stat?.permanent ?? stat?.roll;
   if(raw===undefined || raw===null || raw==="" || !Number.isFinite(Number(raw)) || Number(raw)<0) return null;
   return clamp(raw,0,100);
 }
@@ -752,6 +755,7 @@ async function nativeRoll(actor, {origin, action, attribute, ability, pool, diff
 async function promptFields(title, fields, confirmText = "Roll") {
   const content = `<div class="stl-combat-prompt">${fields.map(f => {
     if (f.type === "select") return `<label>${esc(f.label)}<select name="${esc(f.name)}">${f.options.map(o => `<option value="${esc(o.value)}"${f.selectedValue != null && String(f.selectedValue) === String(o.value) ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</select></label>`;
+    if (f.type === "info") return `<p class="stl-combat-info">${esc(f.label)}: <strong>${esc(f.value)}</strong></p>`;
     return `<label>${esc(f.label)}<input name="${esc(f.name)}" type="number" step="1" min="${esc(f.min ?? -100)}" max="${esc(f.max ?? 100)}" value="${esc(f.value ?? 0)}"></label>`;
   }).join("")}</div>`;
   return await foundry.applications.api.DialogV2.input({
@@ -781,8 +785,12 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
   const weapons = attackWeaponList(attacker);
+  const spiritRating=isSpirit(attacker)?spiritTrait(attacker,"willpower"):null;
   const fields = [
     {name:"weapon",label:"Weapon",type:"select",selectedValue:weaponId ?? "",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
+    ...(isSpirit(attacker)?[{name:"spiritRating",type:"info",
+      label:"Spirit attack (Willpower rating)",
+      value:spiritRating===null?"Not configured":spiritRating+" dice before weapon accuracy and modifiers"}]:[]),
     {name:"difficulty",label:"Attack difficulty (0 = native default)",value:0,min:0,max:10},
     {name:"modifier",label:"Additional attack dice (+/-)",value:0,min:-50,max:50},
     {name:"damageOverride",label:"Damage type",type:"select",options:[
@@ -1040,22 +1048,60 @@ function addSheetCombatButtons(app, root) {
   return count;
 }
 Hooks.on("renderActorSheetV2", (app, root) => {
+  captureSpiritWeaponSheet(app, root);
   queueMicrotask(() => addSheetCombatButtons(app, root));
 });
 
-// Intercept native WoD20's *weapon attack launcher*, not completed ChatMessages.
-// This avoids a second attack roll and the system's competing damage dialog.
-// Damage-only controls, absent targets/GM, and disabled client preferences retain
-// the exact upstream ActionHelper.RollDialog behavior.
-function shouldStartFromNativeWeapon(dataset, actor) {
-  if (game.system?.id !== "worldofdarkness" || !actor || !dataset) return false;
-  if (!["Melee","Ranged"].includes(dataset.object) || String(dataset.rollitem) !== "true") return false;
-  if (!dataset.itemid || !mayUse(game.user?.id, actor)) return false;
-  if (!DiceRoller || !activeGM() || game.user?.targets?.size !== 1) return false;
-  if (game.settings?.get && game.settings.get(MODULE,"autoWeaponAttacks") === false) return false;
+// Intercept the native weapon launcher before its DiceRoller runs.
+// Normal physical Actors keep WoD20's original fallback if no single target
+// is selected. Spirits must never silently roll Dex+Brawl from that fallback.
+function nativeWeaponCandidate(dataset, actor) {
+  if (game.system?.id!=="worldofdarkness" || !actor || !dataset) return false;
+  if (!["Melee","Ranged"].includes(dataset.object) || String(dataset.rollitem)!=="true") return false;
+  if (!dataset.itemid || !mayUse(game.user?.id,actor)) return false;
   const item=actor.items?.get?.(dataset.itemid);
-  if (!item || item.type !== (dataset.object === "Melee" ? "Melee Weapon" : "Ranged Weapon")) return false;
-  if (item.system?.attack?.isrollable === false || isGrappleManeuver(item)) return false;
+  return !!item && item.type===(dataset.object==="Melee"?"Melee Weapon":"Ranged Weapon") &&
+    item.system?.attack?.isrollable!==false && !isGrappleManeuver(item);
+}
+function automaticWeaponEnabled() {
+  return !game.settings?.get || game.settings.get(MODULE,"autoWeaponAttacks")!==false;
+}
+function spiritWeaponWarning() {
+  if (!DiceRoller) return "Combat Workflow is not ready; the Spirit attack was not rolled.";
+  if (!activeGM()) return "A GM must be online for a Spirit weapon attack; no attack was rolled.";
+  return "Target exactly one defender before using a Spirit weapon; no attack was rolled.";
+}
+function shouldStartFromNativeWeapon(dataset, actor) {
+  return nativeWeaponCandidate(dataset,actor) && automaticWeaponEnabled() &&
+    !!DiceRoller && !!activeGM() && game.user?.targets?.size===1;
+}
+function shouldBlockUnsafeSpiritAttack(dataset,actor) {
+  return isSpirit(actor) && nativeWeaponCandidate(dataset,actor) && automaticWeaponEnabled();
+}
+// The Creature (Spirit) V2 sheet uses .vrollable rows. Intercept the click in
+// the sheet capture phase before the system's normal handler, even when that
+// handler captured an earlier reference to RollDialog.
+const spiritSheetRoots=new WeakSet();
+function captureSpiritWeaponSheet(app,root) {
+  const actor=app?.actor;
+  if (!isSpirit(actor) || !root?.addEventListener || spiritSheetRoots.has(root)) return false;
+  spiritSheetRoots.add(root);
+  root.addEventListener("click",event=>{
+    const control=event.target?.closest?.(
+      '.vrollable[data-rollitem="true"][data-object="Melee"], .vrollable[data-rollitem="true"][data-object="Ranged"]');
+    if (!control || !root.contains?.(control)) return;
+    if (!shouldBlockUnsafeSpiritAttack(control.dataset,actor)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation?.();
+    event.stopPropagation?.();
+    if (!shouldStartFromNativeWeapon(control.dataset,actor)) {
+      return notify(spiritWeaponWarning());
+    }
+    void open({attackerActor:actor,weaponId:control.dataset.itemid}).catch(error=>{
+      console.error(MODULE+" | Spirit sheet attack could not start",error);
+      notify("Spirit weapon attack failed: "+error.message,"error");
+    });
+  },true);
   return true;
 }
 function installNativeWeaponLauncher(ActionHelper) {
@@ -1064,7 +1110,10 @@ function installNativeWeaponLauncher(ActionHelper) {
   if (previous.__stlCombatWorkflowWrapped) return true;
   const wrapper=async function(...args) {
     const [dataset,actor]=args;
-    if (!shouldStartFromNativeWeapon(dataset,actor)) return previous.apply(this,args);
+    if (!shouldStartFromNativeWeapon(dataset,actor)) {
+      if (shouldBlockUnsafeSpiritAttack(dataset,actor)) return notify(spiritWeaponWarning());
+      return previous.apply(this,args);
+    }
     try {
       // Native sheet and Actor API both reach this method. Route only when a
       // valid targeted attack is being initiated; the workflow rolls ONCE.
