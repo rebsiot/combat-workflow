@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.5 — 2026-11-14 (legacy Creature sheet support, live verification pending)
+- Confirmed source compatibility issue: WoD20 `CreatureActorSheet` inherits `MortalActorSheet` (a legacy `foundry.appv1.sheets.ActorSheet`), while v0.3.4 default row insertion listened only to V2 render hooks. Catfiend is Actor type Creature, had only an owned Bite, and the page inspection found zero matching V2 Natural Weapons sections.
+- Register legacy `renderActorSheet` and `renderCreatureActorSheet` listeners and normalize Foundry's jQuery-style HTML argument before invoking the existing idempotent virtual maneuver row insertion.
+- Add regression for legacy Creature/Spirit sheet rendering, double hook calls, and real customized Bite preservation, in addition to previous V2 coverage.
+- No Actor migration, item writes, compendium edits or changes to virtual maneuver combat logic. Native Foundry Creature sheet live check pending.
+
 ## v0.3.4 — 2026-11-14 (candidate: native sheet fix; live test pending)
 - Fix missing virtual Bite, Kick and Punch rows on native WoD20 Combat sheets. The v0.3.3 candidate deferred insertion via microtask on Foundry v14's pending HTML; missing rows were reported live on Catfiend. Place virtual rows synchronously inside the render hook so they survive insertion into the sheet.
 - Add generic `renderApplicationV2` fallback for Creature/Spirit sheets and duplicate-safe row markers when both render hooks fire.
