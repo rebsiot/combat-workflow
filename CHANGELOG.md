@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.3.6 — 2026-11-14 (candidate; live verification pending)
+- Remember the last **successfully rolled** Attack-menu weapon or virtual maneuver for each Actor when the Attack macro is used again, including following combat rounds and new targets.
+- Preferences live only in the current user's browser settings (hidden, no Actor flag/Item write). Each Actor/world/user has a separate preference; explicit native weapon and sheet Bite/Kick/Punch clicks override remembered defaults.
+- Validate stored selections against current Attack options; if an owned basic maneuver disappears, fall back to its virtual equivalent. Missing custom weapons fall back to ordinary Unarmed Strike rather than stale IDs.
+- Reset difficulty, bonus dice, damage override, split attacks and firing modes to their existing defaults. Never automatically roll; cancelling or a failed native attack doesn't change the remembered action.
+- Add dedicated per-Actor persistence and API/macro-path regression with the full Node mock suite; no migration or change to completed combat/health.
+- This is a **candidate**, not a published release or confirmed live Foundry test.
+
+## v0.3.5 — 2026-11-14 (legacy Creature sheet support, live verification pending)
+- Confirmed source compatibility issue: WoD20 `CreatureActorSheet` inherits `MortalActorSheet` (a legacy `foundry.appv1.sheets.ActorSheet`), while v0.3.4 default row insertion listened only to V2 render hooks. Catfiend is Actor type Creature, had only an owned Bite, and the page inspection found zero matching V2 Natural Weapons sections.
+- Register legacy `renderActorSheet` and `renderCreatureActorSheet` listeners and normalize Foundry's jQuery-style HTML argument before invoking the existing idempotent virtual maneuver row insertion.
+- Add regression for legacy Creature/Spirit sheet rendering, double hook calls, and real customized Bite preservation, in addition to previous V2 coverage.
+- No Actor migration, item writes, compendium edits or changes to virtual maneuver combat logic. Native Foundry Creature sheet live check pending.
+
+## v0.3.4 — 2026-11-14 (candidate: native sheet fix; live test pending)
+- Fix missing virtual Bite, Kick and Punch rows on native WoD20 Combat sheets. The v0.3.3 candidate deferred insertion via microtask on Foundry v14's pending HTML; missing rows were reported live on Catfiend. Place virtual rows synchronously inside the render hook so they survive insertion into the sheet.
+- Add generic `renderApplicationV2` fallback for Creature/Spirit sheets and duplicate-safe row markers when both render hooks fire.
+- Regression test pending-HTML timing, Creature/Spirit coverage, idempotence and existing Item preservation. Full automated suite and candidate package CI.
+- No Actor/Item migrations or new data writes. User's live Catfiend confirmation pending for v0.3.4.
+
+## v0.3.3 — 2026-11-14 (candidate — live test pending)
+- Display Bite, Kick, and Punch on all supported native WoD20 Combat sheets, using read-only virtual maneuvers only when the Actor lacks the corresponding Item.
+- Make all three available in Combat Workflow's Attack chooser for any Actor, using M20 Combat Library defaults: Bite Dex+Brawl diff 5, Str+1 B; Kick Dex+Brawl diff 7, Str+1 B; Punch Dex+Brawl diff 6, Str B.
+- Preserve an existing customized Bite/Kick/Punch Item in place of the corresponding virtual entry. No Item creation, Actor migration, compendium edits, macro/hotbar writes or history changes.
+- Preserve basic-maneuver identity through authoritative chat, damage and split-attack phases; validate requested maneuver keys.
+- Automated mock tests and candidate package checks added. Live Foundry verification pending; no release/merge implied.
+
+
 ## v0.3.2 — 2026-11-14 — GM review of incomplete NPC combat stats
 
 - When the GM rolls for a non-PC with a missing/untrained (zero) combat Ability, offer an optional **Review combat stats** prompt before native WoD20 dice are rolled. Show current Attribute and Ability ratings; the GM can keep an intentionally untrained zero or enter temporary ratings for that roll. A missing Attribute also prompts. No Actor/Item/flag mutation, migration, or permanent combat bonus; the changed ratings appear only in the current roll's dice count and chat explanation.

@@ -1,0 +1,41 @@
+name: Combat Workflow v0.3.6 candidate checks
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and entire mock regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/combat-workflow.js
+          node --check scripts/tutorial.js
+          node -e "JSON.parse(require('fs').readFileSync('module.json','utf8'))"
+          for file in tests/*.cjs; do node "$file"; done
+      - name: Build and verify complete Foundry installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/stl-combat-workflow
+          cp module.json README.md CHANGELOG.md RELEASE_NOTES.md LICENSE build/stl-combat-workflow/
+          cp -R scripts styles build/stl-combat-workflow/
+          ( cd build && zip -qr ../stl-combat-workflow-v0.3.6-candidate.zip stl-combat-workflow )
+          unzip -tq stl-combat-workflow-v0.3.6-candidate.zip
+          unzip -Z1 stl-combat-workflow-v0.3.6-candidate.zip | grep -qx 'stl-combat-workflow/module.json'
+          unzip -Z1 stl-combat-workflow-v0.3.6-candidate.zip | grep -qx 'stl-combat-workflow/scripts/combat-workflow.js'
+          if unzip -Z1 stl-combat-workflow-v0.3.6-candidate.zip | grep -Eq 'HANDOFF|(^|/)tests/|(^|/)\.github/'; then
+            echo "Internal handoff or tests leaked into release ZIP"; exit 1
+          fi
+      - name: Retain installable candidate for review (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: stl-combat-workflow-v0.3.6-candidate
+          path: stl-combat-workflow-v0.3.6-candidate.zip
+          retention-days: 14

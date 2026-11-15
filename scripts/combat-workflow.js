@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.2. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.6. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -121,6 +121,94 @@ function isGrappleManeuver(item) {
 }
 function attackWeaponList(actor) {
   return weaponList(actor).filter(item => !isGrappleManeuver(item));
+}
+// Basic attacks are VIRTUAL and never written to an Actor. These values match
+// Combat Library's general maneuvers; any owned edited Item takes precedence.
+const BASIC_MANEUVERS=Object.freeze({
+  bite:Object.freeze({name:"Bite",difficulty:5,bonus:1}),
+  kick:Object.freeze({name:"Kick",difficulty:7,bonus:1}),
+  punch:Object.freeze({name:"Punch",difficulty:6,bonus:0})
+});
+const BASIC_KEYS=Object.freeze(["bite","kick","punch"]);
+const BASIC_PREFIX="stl-basic:";
+function validBasicManeuver(key) {
+  return typeof key==="string"&&Object.prototype.hasOwnProperty.call(BASIC_MANEUVERS,key);
+}
+function ownedBasicWeapon(actor,key) {
+  if(!validBasicManeuver(key))return null;
+  return attackWeaponList(actor).find(item=>
+    item.type==="Melee Weapon"&&String(item.name??"").trim().toLowerCase()===key)??null;
+}
+function basicWeapon(key) {
+  const spec=BASIC_MANEUVERS[key];
+  if(!spec)return null;
+  return {id:null,type:"Melee Weapon",name:spec.name,system:{
+    attack:{attribute:"dexterity",ability:"brawl",accuracy:0,isrollable:true},
+    damage:{attribute:"strength",bonus:spec.bonus,type:"bashing",isrollable:true},
+    difficulty:spec.difficulty,isnatural:true}};
+}
+function workflowWeapon(actor,weaponId,basicManeuver) {
+  if(weaponId)return actor.items.get(weaponId)??null;
+  return validBasicManeuver(basicManeuver)?basicWeapon(basicManeuver):null;
+}
+function attackOptions(actor) {
+  const weapons=attackWeaponList(actor);
+  const used=new Set();
+  const defaults=BASIC_KEYS.map(key=>{
+    const existing=ownedBasicWeapon(actor,key);
+    if(existing){used.add(existing.id);return {value:existing.id,label:existing.name};}
+    return {value:BASIC_PREFIX+key,label:BASIC_MANEUVERS[key].name};
+  });
+  return [...defaults,...weapons.filter(item=>!used.has(item.id))
+    .map(item=>({value:item.id,label:item.name}))];
+}
+// Each user's last *rolled* attack selection is a hidden client preference,
+// keyed by world + user + Actor UUID. This survives combat rounds and reloads
+// without writing Actor data, updating macros, or leaking choices to players.
+// The explicit sheet/native weapon selection always outranks this preference.
+const LAST_ATTACK_SETTING="lastAttackByActor";
+const MAX_ATTACK_MEMORIES=150;
+function attackMemoryKey(actor) {
+  const uuid=actor?.uuid;
+  if(typeof uuid!=="string"||!uuid)return null;
+  return [game.world?.id??"world",game.user?.id??"user",uuid].join("|");
+}
+function lastAttackChoice(actor,options=attackOptions(actor)) {
+  const key=attackMemoryKey(actor);
+  if(!key||typeof game.settings?.get!=="function")return null;
+  let entry;
+  try { entry=game.settings.get(MODULE,LAST_ATTACK_SETTING)?.[key]; }
+  catch (_error) { return null; } // Unregistered setting (older cached module).
+  if(!entry||typeof entry!=="object"||typeof entry.selected!=="string")return null;
+  if(entry.selected===""||options.some(option=>option.value===entry.selected))
+    return entry.selected;
+  // An owned standard maneuver may have been removed or replaced. Fall back
+  // to that same virtual/default attack, never to an unrelated stale Item ID.
+  if(validBasicManeuver(entry.basicKey)) {
+    const replacement=ownedBasicWeapon(actor,entry.basicKey)?.id??BASIC_PREFIX+entry.basicKey;
+    if(options.some(option=>option.value===replacement))return replacement;
+  }
+  return null;
+}
+async function rememberAttackChoice(actor,selected,item) {
+  const key=attackMemoryKey(actor);
+  if(!key||typeof game.settings?.get!=="function"||typeof game.settings?.set!=="function")return;
+  try {
+    const stored=game.settings.get(MODULE,LAST_ATTACK_SETTING);
+    const entries=stored&&typeof stored==="object"&&!Array.isArray(stored)?{...stored}:{};
+    // Refresh recency in insertion order; bound local settings growth.
+    delete entries[key];
+    const name=String(item?.name??"").trim().toLowerCase();
+    const basicKey=validBasicManeuver(name)?name:null;
+    entries[key]={selected:String(selected??""),basicKey};
+    const keys=Object.keys(entries);
+    for(const oldKey of keys.slice(0,Math.max(0,keys.length-MAX_ATTACK_MEMORIES)))
+      delete entries[oldKey];
+    await game.settings.set(MODULE,LAST_ATTACK_SETTING,entries);
+  } catch(error) {
+    // Preference storage must never fail or duplicate an otherwise valid roll.
+    console.warn(MODULE+" | Could not save last attack preference",error);
+  }
 }
 function woundPenalty(actor, origin) {
   if (isSpirit(actor)) return 0;
@@ -463,7 +551,7 @@ async function acceptContinue(payload) {
   if (!attacker||!target||!mayUse(payload.userId,attacker)) throw new Error("Cannot continue: attacker, target or permission unavailable");
   const newIndex=state.combo.index+1;
   if (safeInt(payload.index)!==newIndex) throw new Error("Out-of-sequence multiple attack");
-  const item=state.weaponId?attacker.items.get(state.weaponId):null;
+  const item=workflowWeapon(attacker,state.weaponId,state.basicManeuver);
   if (state.weaponId&&!item) throw new Error("Weapon removed during multiple attacks");
   const prior=foundry.utils.deepClone(state);
   prior.combo.continued=true;
@@ -496,7 +584,10 @@ async function acceptStart(payload) {
   const target = await getActor(payload.targetUuid);
   if (!attacker || !target || !mayUse(payload.userId, attacker)) throw new Error("Missing attacker/target or no attacker ownership");
   if (payload.weaponId && !weaponList(attacker).some(i => i.id === payload.weaponId)) throw new Error("Weapon not owned by attacker");
-  const item = payload.weaponId ? attacker.items.get(payload.weaponId) : null;
+  const basicManeuver=payload.basicManeuver||null;
+  if(basicManeuver&&(!validBasicManeuver(basicManeuver)||payload.weaponId))
+    throw new Error("Invalid basic maneuver selection");
+  const item=workflowWeapon(attacker,payload.weaponId,basicManeuver);
   const successes = clamp(payload.successes, 0, 100);
   const state = {
     schema:1,
@@ -506,6 +597,7 @@ async function acceptStart(payload) {
     attackerName:attacker.name,
     targetName:target.name,
     weaponId:item?.id || null,
+    basicManeuver,
     weaponName:payload.maneuver === "hold" ? "Grapple / Hold" : (item?.name || "Unarmed Strike"),
     damageType:effectiveDamageType(item, target, payload.damageOverride, attacker),
     targetHealthMode:healthMode(target),
@@ -878,14 +970,22 @@ function attackContext({attackerActor = null, attackerToken = null} = {}) {
   if (!activeGM()) { notify("A GM must be online to coordinate combat."); return null; }
   return {attacker,attackerUuid,target};
 }
-async function open({attackerActor = null, attackerToken = null, weaponId = null} = {}) {
+async function open({attackerActor = null, attackerToken = null, weaponId = null, defaultManeuver = null} = {}) {
   const context = attackContext({attackerActor, attackerToken});
   if (!context) return;
   const {attacker, attackerUuid, target} = context;
   const weapons = attackWeaponList(attacker);
+  if(defaultManeuver&&!validBasicManeuver(defaultManeuver))return notify("Unknown basic maneuver.");
+  const selectedBasic=defaultManeuver
+    ? ownedBasicWeapon(attacker,defaultManeuver)?.id??BASIC_PREFIX+defaultManeuver
+    : null;
   const spiritRating=isSpirit(attacker)?spiritTrait(attacker,"willpower"):null;
+  const options=[{value:"",label:"Unarmed Strike"},...attackOptions(attacker)];
+  // A caller-specified weapon (including direct native sheet clicks) wins.
+  // Otherwise default to this Actor's last rolled attack, if still available.
+  const selectedAttack=weaponId??selectedBasic??lastAttackChoice(attacker,options)??"";
   const fields = [
-    {name:"weapon",label:"Weapon",type:"select",selectedValue:weaponId ?? "",options:[{value:"",label:"Unarmed Strike"},...weapons.map(i=>({value:i.id,label:i.name}))]},
+    {name:"weapon",label:"Weapon",type:"select",selectedValue:selectedAttack,options},
     ...(isSpirit(attacker)?[{name:"spiritRating",type:"info",
       label:"Spirit attack (Willpower rating)",
       value:spiritRating===null?"Not configured":spiritRating+" dice before weapon accuracy and modifiers"}]:[]),
@@ -905,8 +1005,11 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   // When launched from a native weapon control, the same weapon is preselected.
   // Ignore missing/unsuitable items rather than silently substituting Unarmed.
   if (weaponId && !weapons.some(w => w.id === weaponId)) return notify("Weapon is no longer available for an attack.");
-  const item = choice.weapon ? attacker.items.get(choice.weapon) : null;
-  if (choice.weapon && !item) return notify("Weapon no longer exists.");
+  const picked=String(choice.weapon??"");
+  const basicManeuver=picked.startsWith(BASIC_PREFIX)?picked.slice(BASIC_PREFIX.length):null;
+  if(basicManeuver&&!validBasicManeuver(basicManeuver))return notify("Invalid basic maneuver.");
+  const item=basicManeuver?basicWeapon(basicManeuver):(picked?attacker.items.get(picked):null);
+  if(picked&&!item)return notify("Weapon no longer exists.");
   if (isGrappleManeuver(item)) return notify("Use Actions → Grapple for this maneuver.");
   const count=clamp(choice.attacks||1,1,4);
   const mode=choice.fireMode||"single";
@@ -945,9 +1048,12 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
   });
   if (ammo.spend && !await spendAmmunition(item,mode)) return notify("Ammo changed before expenditure; ask the GM to review this roll.");
   send({type:"start",nonce:foundry.utils.randomID(),attackerUuid,
-    targetUuid:target.document.uuid,weaponId:item?.id||null,successes:success,
+    targetUuid:target.document.uuid,weaponId:item?.id||null,basicManeuver,successes:success,
     damageOverride:choice.damageOverride,maneuver:"strike",firingMode:mode,attackDifficulty:difficulty,
     combo:split?{index:1,count,pools:split,continued:false}:null});
+  // Only remember after the native attack roll completed, not when the dialog
+  // opened or was cancelled. Zero-success rolls still count as used attacks.
+  void rememberAttackChoice(attacker,picked,item);
 
 }
 // Grapple is a distinct action: never display weapons, ammo, attack splitting,
@@ -1000,7 +1106,7 @@ async function clickAction(event) {
     if (state.combo.continued||state.combo.index>=state.combo.count) return notify("This attack sequence is already complete.");
     const index=state.combo.index+1;
     const pool=state.combo.pools[index-1];
-    const item=state.weaponId?actor.items.get(state.weaponId):null;
+    const item=workflowWeapon(actor,state.weaponId,state.basicManeuver);
     if (state.weaponId&&!item) return notify("The attacker's weapon was removed.");
     const targets=[...game.user.targets];
     if (targets.length>1) return notify("Target only one defender for the next attack.");
@@ -1080,7 +1186,7 @@ async function clickAction(event) {
   }
   if (action === "damage" && state.stage === "damage") {
     if (!mayUse(game.user.id, actor)) return notify("Only the attacker (or GM) rolls damage.");
-    const item = state.weaponId ? actor.items.get(state.weaponId) : null;
+    const item = workflowWeapon(actor,state.weaponId,state.basicManeuver);
     if (state.weaponId && !item) return notify("Weapon was removed from attacker; GM must resolve manually.");
     const damage = defaultDamagePool(actor, item, state.netSuccesses);
     const reviewed=await reviewGMCombatPool(actor,{
@@ -1200,10 +1306,62 @@ function addSheetCombatButtons(app, root) {
   }
   return count;
 }
+// Place missing basic actions in the native Natural Weapons section without
+// creating Items. Native custom weapons retain their WoD20 rows and behavior.
+function addSheetBasicManeuvers(app,root) {
+  const actor=app?.actor;
+  if(game.system?.id!=="worldofdarkness"||!actor?.items||!root?.querySelector)return 0;
+  const header=root.querySelector(".headlineRow.combat-natural-itemlist");
+  const list=header?.nextElementSibling;
+  if(!list?.prepend||!list?.querySelector)return 0;
+  let count=0;
+  for(const key of [...BASIC_KEYS].reverse()) {
+    if(ownedBasicWeapon(actor,key)||list.querySelector(`[data-stl-basic-maneuver="${key}"]`))continue;
+    const spec=BASIC_MANEUVERS[key];
+    const row=document.createElement("div");
+    row.className="item-row-area combat-natural-itemlist stl-basic-maneuver-row";
+    row.dataset.stlBasicManeuver=key;
+    row.innerHTML=`<div class="dragrow headlineNormal combat-natural-itemlist">
+      <span class="width-iconbox" aria-hidden="true"></span>
+      <button type="button" class="width-namebox stl-basic-maneuver-launch" aria-label="${spec.name} attack" title="Start ${spec.name} in Combat Workflow">${spec.name}</button>
+      <span class="width-smallbox">Dexterity</span><span class="width-abilitybox">Brawl</span>
+      <span class="width-valuebox">0</span><span class="width-valuebox">${spec.difficulty}</span>
+      <span class="width-smallbox">Str +${spec.bonus} B</span></div>`;
+    row.querySelector(".stl-basic-maneuver-launch")?.addEventListener("click",event=>{
+      event.preventDefault();event.stopPropagation();
+      void open({attackerActor:actor,defaultManeuver:key}).catch(error=>{
+        console.error(`${MODULE} | Basic maneuver failed`,error);
+        notify(`Combat workflow: ${error.message}`);
+      });
+    });
+    list.prepend(row);count++;
+  }
+  return count;
+}
+// Foundry v14 render hooks receive PENDING HTML, which is about to replace
+// the sheet contents. Insert the virtual rows synchronously into that HTML.
+// A queued microtask may run after that pending HTML has been discarded.
+// Both hooks are intentionally safe to call: each row has a stable DOM marker.
 Hooks.on("renderActorSheetV2", (app, root) => {
   captureSpiritWeaponSheet(app, root);
+  addSheetBasicManeuvers(app, root);
   queueMicrotask(() => addSheetCombatButtons(app, root));
 });
+// General V2 hook is a compatibility fallback for WoD20 Creature subclasses.
+// Narrow DOM/Actor guards in addSheetBasicManeuvers keep unrelated apps intact.
+Hooks.on("renderApplicationV2", (app, root) => {
+  addSheetBasicManeuvers(app, root);
+});
+// WoD20 7.3.x still renders CreatureActorSheet (including Spirit) through
+// foundry.appv1.sheets.ActorSheet, not ActorSheetV2. Legacy render hooks pass
+// a jQuery-like wrapper instead of a bare HTMLElement. Support both while
+// sharing the same idempotent row insertion and unchanged native Item priority.
+function renderLegacyActorSheetManeuvers(app, html) {
+  const root = html?.querySelector ? html : (html?.[0] ?? html?.element?.[0] ?? html?.element);
+  if(root?.querySelector) addSheetBasicManeuvers(app, root);
+}
+Hooks.on("renderActorSheet", renderLegacyActorSheetManeuvers);
+Hooks.on("renderCreatureActorSheet", renderLegacyActorSheetManeuvers);
 
 // Intercept the native weapon launcher before its DiceRoller runs.
 // Normal physical Actors keep WoD20's original fallback if no single target
@@ -1304,6 +1462,11 @@ Hooks.once("ready", async () => {
     name:"Use Combat Workflow from weapon attacks",
     hint:"When you have exactly one target and a GM is online, using a weapon's native Attack control starts Combat Workflow with that weapon selected. Other rolls and damage-only buttons remain native.",
     scope:"client",config:true,type:Boolean,default:true
+  });
+  game.settings.register(MODULE,LAST_ATTACK_SETTING,{
+    name:"Last attack selected by each Actor",
+    hint:"Remembers the last rolled attack per Actor on this browser; no Actor, macro or world data is changed.",
+    scope:"client",config:false,type:Object,default:{}
   });
   try {
     const nativeActions=await import("/systems/worldofdarkness/module/scripts/action-helpers.js");

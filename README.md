@@ -41,6 +41,20 @@ To opt out on your own client, turn off **Use Combat Workflow from weapon attack
 
 This integration routes the native weapon *launcher* into Combat Workflow; it does not inspect or copy successes from an attack that already rolled. The WoD20 system's own complex weapon-dialog-only features (for example, spray fire or specialist modifiers) remain available by disabling auto-launch for that client.
 
+## Remember the previous attack (v0.3.6 candidate)
+
+When you click the **Targeted Attack** macro, Combat Workflow automatically preselects the **last Attack-menu weapon or maneuver that Actor actually rolled**. This persists across turns, combat rounds, new targets and reloads in that browser. Different Actors keep independent choices. Clicking a specific owned weapon on the native sheet or a default Bite/Kick/Punch row intentionally overrides the remembered choice. If the weapon has been removed, the selection safely falls back to the corresponding built-in basic maneuver when possible, or Unarmed Strike.
+
+The remembered attack is only a **preselection**: confirm or change it before pressing **Roll Attack**. Situational dice bonuses, difficulty changes, damage-type overrides and split attacks are not repeated automatically. Cancelling an Attack dialog does not change the preference. Preferences are stored only as a hidden per-client setting, never in Actor data, world Items, macros or hotbars; GM and players do not share this browser preference.
+
+*This v0.3.6 implementation is tested with mocks and awaits live Foundry acceptance.*
+
+## Universal basic attacks (v0.3.5 candidate)
+
+**Bite, Kick, and Punch** are always offered in the Combat Workflow Attack menu. The module also shows whichever of those three are missing as clickable **virtual** rows in WoD20's Natural Weapons section of the Combat sheet; it does **not** import, duplicate, or update a single Actor Item. If an Actor already owns a Bite, Kick, or Punch weapon, the sheet's real Item and its edited rules take precedence.
+
+Default pools are Dexterity + Brawl; Bite difficulty 5 / Strength +1 bashing, Kick difficulty 7 / Strength +1 bashing, and Punch difficulty 6 / Strength bashing. Bite damage type depends on physiology: edit the owned Item or select another damage type when appropriate. An online GM and exactly one target are required for Workflow; ordinary native weapon attacks remain available under existing module settings. The v0.3.5 candidate fixes sheet insertion timing on Foundry v14; real-sheet validation is still pending.
+
 ### Vampires, werewolves, spirits and other creatures (v0.3.2)
 
 The attacker and defender are resolved **independently** using their actual WoD20 Actor type:
