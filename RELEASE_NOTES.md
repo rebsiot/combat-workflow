@@ -1,4 +1,4 @@
-# WoD20 Combat Workflow v0.3.4 — Candidate (sheet rendering fix)
+# WoD20 Combat Workflow v0.3.5 — Candidate (legacy Creature sheet support)
 
 ## Default attacks on every character
 
@@ -12,7 +12,7 @@ Damage type for Bite varies with physiology; use an edited owned Bite Item or ch
 
 ## Character-sheet fix
 
-The v0.3.4 candidate could load correctly but show only owned Natural Weapons such as Bite. The v0.3.4 candidate inserts missing virtual rows synchronously into Foundry v14 pending sheet HTML and also listens to the general ApplicationV2 render event for Creature/Spirit variants. The row insertion is idempotent even if both hooks fire. This is mock-tested, not yet confirmed in the user's Foundry sheet.
+The v0.3.5 candidate could load correctly but show only owned Natural Weapons such as Bite. The v0.3.5 candidate inserts missing virtual rows synchronously into Foundry v14 pending sheet HTML and also listens to the general ApplicationV2 render event for Creature/Spirit variants. The row insertion is idempotent even if both hooks fire. This is mock-tested, not yet confirmed in the user's Foundry sheet.
 
 ## Data safety and compatibility
 
@@ -26,4 +26,4 @@ Candidate only; stable v0.3.2 remains published. Back up `Z:\\Data\\modules\\stl
 
 Rollback: restore v0.3.2 code and restart/hard-refresh. New virtual actions create no Actor data; existing applied combat wounds and completed rolls are not undone by code rollback.
 
-**Source:** GitHub repo `rebsiot/combat-workflow`, verified source baseline main `2f6cf4cc7e671766ccc684abc605d0e7320dbc1a` (implementation v0.3.2 commit `7258a7fdb2c622c688b2611830b73d75117fe99e`). Branch `feature/basic-maneuvers-v0.3.4`. No live installation/release verified for v0.3.4.
+**Source:** GitHub repo `rebsiot/combat-workflow`, verified source baseline main `2f6cf4cc7e671766ccc684abc605d0e7320dbc1a` (implementation v0.3.2 commit `7258a7fdb2c622c688b2611830b73d75117fe99e`). Branch `feature/basic-maneuvers-v0.3.5`. No live installation/release verified for v0.3.5.
