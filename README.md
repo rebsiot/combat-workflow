@@ -41,11 +41,11 @@ To opt out on your own client, turn off **Use Combat Workflow from weapon attack
 
 This integration routes the native weapon *launcher* into Combat Workflow; it does not inspect or copy successes from an attack that already rolled. The WoD20 system's own complex weapon-dialog-only features (for example, spray fire or specialist modifiers) remain available by disabling auto-launch for that client.
 
-## Universal basic attacks (v0.3.3 candidate)
+## Universal basic attacks (v0.3.4 candidate)
 
 **Bite, Kick, and Punch** are always offered in the Combat Workflow Attack menu. The module also shows whichever of those three are missing as clickable **virtual** rows in WoD20's Natural Weapons section of the Combat sheet; it does **not** import, duplicate, or update a single Actor Item. If an Actor already owns a Bite, Kick, or Punch weapon, the sheet's real Item and its edited rules take precedence.
 
-Default pools are Dexterity + Brawl; Bite difficulty 5 / Strength +1 bashing, Kick difficulty 7 / Strength +1 bashing, and Punch difficulty 6 / Strength bashing. Bite damage type depends on physiology: edit the owned Item or select another damage type when appropriate. An online GM and exactly one target are required for Workflow; ordinary native weapon attacks remain available under existing module settings. Live testing of this candidate is pending.
+Default pools are Dexterity + Brawl; Bite difficulty 5 / Strength +1 bashing, Kick difficulty 7 / Strength +1 bashing, and Punch difficulty 6 / Strength bashing. Bite damage type depends on physiology: edit the owned Item or select another damage type when appropriate. An online GM and exactly one target are required for Workflow; ordinary native weapon attacks remain available under existing module settings. The v0.3.4 candidate fixes sheet insertion timing on Foundry v14; real-sheet validation is still pending.
 
 ### Vampires, werewolves, spirits and other creatures (v0.3.2)
 
