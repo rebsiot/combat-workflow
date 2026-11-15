@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.3. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.4. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -1283,12 +1283,19 @@ function addSheetBasicManeuvers(app,root) {
   }
   return count;
 }
+// Foundry v14 render hooks receive PENDING HTML, which is about to replace
+// the sheet contents. Insert the virtual rows synchronously into that HTML.
+// A queued microtask may run after that pending HTML has been discarded.
+// Both hooks are intentionally safe to call: each row has a stable DOM marker.
 Hooks.on("renderActorSheetV2", (app, root) => {
   captureSpiritWeaponSheet(app, root);
-  queueMicrotask(() => {
-    addSheetCombatButtons(app, root);
-    addSheetBasicManeuvers(app, root);
-  });
+  addSheetBasicManeuvers(app, root);
+  queueMicrotask(() => addSheetCombatButtons(app, root));
+});
+// General V2 hook is a compatibility fallback for WoD20 Creature subclasses.
+// Narrow DOM/Actor guards in addSheetBasicManeuvers keep unrelated apps intact.
+Hooks.on("renderApplicationV2", (app, root) => {
+  addSheetBasicManeuvers(app, root);
 });
 
 // Intercept the native weapon launcher before its DiceRoller runs.
