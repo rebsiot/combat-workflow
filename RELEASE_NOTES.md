@@ -8,7 +8,10 @@ Roll Attack remains a deliberate click. Difficulty, dice bonuses, damage-type ov
 
 **Test status:** automated/mock only, not tested in live Foundry v14 with WoD20. Candidate based on the verified v0.3.5 source branch. Back up the module folder and world before installing; restart and Shift+F5 afterward. Rollback restores complete v0.3.5 module code; preference is inert if you downgrade.
 
-\n---\n\n# WoD20 Combat Workflow v0.3.5 — Candidate (legacy Creature sheet support)
+
+---
+
+# WoD20 Combat Workflow v0.3.5 — Candidate (legacy Creature sheet support)
 
 ## Default attacks on every character
 
