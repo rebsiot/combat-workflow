@@ -20,8 +20,10 @@ const defender={id:'d',uuid:'Actor.d',documentName:'Actor',name:'Target',type:'P
 const targetToken={actor:defender,name:'Target',document:{uuid:'Scene.Token.d'}};
 let choice,dialog;const emitted=[],rolls=[],messages=[],warnings=[];
 const gm={id:'gm',isGM:true,active:true};const player={id:'player',isGM:false,active:true};
+const renderHooks=new Map(),queuedRenders=[];
 const ctx=vm.createContext({console,Math,Number,String,Promise,setTimeout,clearTimeout,
-  Hooks:{once(){},on(){}},queueMicrotask:fn=>fn(),
+  Hooks:{once(name,fn){renderHooks.set(name,fn);},on(name,fn){renderHooks.set(name,fn);}},
+  queueMicrotask:fn=>queuedRenders.push(fn),
   canvas:{tokens:{controlled:[]}},
   CONFIG:{worldofdarkness:{successesToDamageRolls:true,defaultAutoAmmo:true}},
   game:{system:{id:'worldofdarkness'},user:{...player,targets:new Set([targetToken])},
@@ -82,6 +84,37 @@ ctx.creatureSheet={actor:creature};ctx.creatureRoot=creatureRoot;
 assert.equal(evaluate('addSheetBasicManeuvers(creatureSheet,creatureRoot)'),3);
 assert.deepEqual(creatureRows.map(r=>r.dataset.stlBasicManeuver),['bite','kick','punch']);
 assert.equal(evaluate('addSheetBasicManeuvers(creatureSheet,creatureRoot)'),0);
+assert.equal(warnings.length,0);
+
+// Critical Foundry v14 regression: the root handed to renderActorSheetV2 is
+// *pending HTML*. Rows must be present before that hook returns; a microtask
+// modifies an element which may never be inserted into the live sheet.
+function mockList() {
+  const rows=[];
+  const list={prepend:row=>rows.unshift(row),querySelector:selector=>{
+    const key=selector.match(/"([^"]+)"/)?.[1];
+    return rows.find(row=>row.dataset.stlBasicManeuver===key)||null;}};
+  return {rows,root:{querySelector:selector=>selector==='.headlineRow.combat-natural-itemlist'
+    ?{nextElementSibling:list}:null,querySelectorAll:()=>[],addEventListener(){}}};
+}
+assert.equal(typeof renderHooks.get('renderActorSheetV2'),'function',
+  'native ActorSheetV2 render hook registered');
+assert.equal(typeof renderHooks.get('renderApplicationV2'),'function',
+  'generic ApplicationV2 fallback registered');
+const pending=mockList();
+renderHooks.get('renderActorSheetV2')({actor:creature},pending.root);
+assert.deepEqual(pending.rows.map(row=>row.dataset.stlBasicManeuver),['bite','kick','punch'],
+  'must modify pending native Creature HTML synchronously, before render hook returns');
+renderHooks.get('renderApplicationV2')({actor:creature},pending.root);
+assert.equal(pending.rows.length,3,'render hook inheritance must not duplicate defaults');
+
+// If WoD20 does not dispatch the ActorSheetV2-specific hook, the generic
+// ApplicationV2 hook still covers Creature/Spirit sheets.
+const onlyGeneral=mockList();
+renderHooks.get('renderApplicationV2')({actor:creature},onlyGeneral.root);
+assert.deepEqual(onlyGeneral.rows.map(row=>row.dataset.stlBasicManeuver),
+  ['bite','kick','punch']);
+assert.equal(list.length,1,'no Actor embedded Item writes during either hook');
 assert.equal(warnings.length,0);
 
 (async()=>{
