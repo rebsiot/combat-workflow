@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.5. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.6. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -161,6 +161,54 @@ function attackOptions(actor) {
   });
   return [...defaults,...weapons.filter(item=>!used.has(item.id))
     .map(item=>({value:item.id,label:item.name}))];
+}
+// Each user's last *rolled* attack selection is a hidden client preference,
+// keyed by world + user + Actor UUID. This survives combat rounds and reloads
+// without writing Actor data, updating macros, or leaking choices to players.
+// The explicit sheet/native weapon selection always outranks this preference.
+const LAST_ATTACK_SETTING="lastAttackByActor";
+const MAX_ATTACK_MEMORIES=150;
+function attackMemoryKey(actor) {
+  const uuid=actor?.uuid;
+  if(typeof uuid!=="string"||!uuid)return null;
+  return [game.world?.id??"world",game.user?.id??"user",uuid].join("|");
+}
+function lastAttackChoice(actor,options=attackOptions(actor)) {
+  const key=attackMemoryKey(actor);
+  if(!key||typeof game.settings?.get!=="function")return null;
+  let entry;
+  try { entry=game.settings.get(MODULE,LAST_ATTACK_SETTING)?.[key]; }
+  catch (_error) { return null; } // Unregistered setting (older cached module).
+  if(!entry||typeof entry!=="object"||typeof entry.selected!=="string")return null;
+  if(entry.selected===""||options.some(option=>option.value===entry.selected))
+    return entry.selected;
+  // An owned standard maneuver may have been removed or replaced. Fall back
+  // to that same virtual/default attack, never to an unrelated stale Item ID.
+  if(validBasicManeuver(entry.basicKey)) {
+    const replacement=ownedBasicWeapon(actor,entry.basicKey)?.id??BASIC_PREFIX+entry.basicKey;
+    if(options.some(option=>option.value===replacement))return replacement;
+  }
+  return null;
+}
+async function rememberAttackChoice(actor,selected,item) {
+  const key=attackMemoryKey(actor);
+  if(!key||typeof game.settings?.get!=="function"||typeof game.settings?.set!=="function")return;
+  try {
+    const stored=game.settings.get(MODULE,LAST_ATTACK_SETTING);
+    const entries=stored&&typeof stored==="object"&&!Array.isArray(stored)?{...stored}:{};
+    // Refresh recency in insertion order; bound local settings growth.
+    delete entries[key];
+    const name=String(item?.name??"").trim().toLowerCase();
+    const basicKey=validBasicManeuver(name)?name:null;
+    entries[key]={selected:String(selected??""),basicKey};
+    const keys=Object.keys(entries);
+    for(const oldKey of keys.slice(0,Math.max(0,keys.length-MAX_ATTACK_MEMORIES)))
+      delete entries[oldKey];
+    await game.settings.set(MODULE,LAST_ATTACK_SETTING,entries);
+  } catch(error) {
+    // Preference storage must never fail or duplicate an otherwise valid roll.
+    console.warn(MODULE+" | Could not save last attack preference",error);
+  }
 }
 function woundPenalty(actor, origin) {
   if (isSpirit(actor)) return 0;
@@ -932,8 +980,12 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
     ? ownedBasicWeapon(attacker,defaultManeuver)?.id??BASIC_PREFIX+defaultManeuver
     : null;
   const spiritRating=isSpirit(attacker)?spiritTrait(attacker,"willpower"):null;
+  const options=[{value:"",label:"Unarmed Strike"},...attackOptions(attacker)];
+  // A caller-specified weapon (including direct native sheet clicks) wins.
+  // Otherwise default to this Actor's last rolled attack, if still available.
+  const selectedAttack=weaponId??selectedBasic??lastAttackChoice(attacker,options)??"";
   const fields = [
-    {name:"weapon",label:"Weapon",type:"select",selectedValue:weaponId ?? selectedBasic ?? "",options:[{value:"",label:"Unarmed Strike"},...attackOptions(attacker)]},
+    {name:"weapon",label:"Weapon",type:"select",selectedValue:selectedAttack,options},
     ...(isSpirit(attacker)?[{name:"spiritRating",type:"info",
       label:"Spirit attack (Willpower rating)",
       value:spiritRating===null?"Not configured":spiritRating+" dice before weapon accuracy and modifiers"}]:[]),
@@ -999,6 +1051,9 @@ async function open({attackerActor = null, attackerToken = null, weaponId = null
     targetUuid:target.document.uuid,weaponId:item?.id||null,basicManeuver,successes:success,
     damageOverride:choice.damageOverride,maneuver:"strike",firingMode:mode,attackDifficulty:difficulty,
     combo:split?{index:1,count,pools:split,continued:false}:null});
+  // Only remember after the native attack roll completed, not when the dialog
+  // opened or was cancelled. Zero-success rolls still count as used attacks.
+  void rememberAttackChoice(attacker,picked,item);
 
 }
 // Grapple is a distinct action: never display weapons, ammo, attack splitting,
@@ -1407,6 +1462,11 @@ Hooks.once("ready", async () => {
     name:"Use Combat Workflow from weapon attacks",
     hint:"When you have exactly one target and a GM is online, using a weapon's native Attack control starts Combat Workflow with that weapon selected. Other rolls and damage-only buttons remain native.",
     scope:"client",config:true,type:Boolean,default:true
+  });
+  game.settings.register(MODULE,LAST_ATTACK_SETTING,{
+    name:"Last attack selected by each Actor",
+    hint:"Remembers the last rolled attack per Actor on this browser; no Actor, macro or world data is changed.",
+    scope:"client",config:false,type:Object,default:{}
   });
   try {
     const nativeActions=await import("/systems/worldofdarkness/module/scripts/action-helpers.js");

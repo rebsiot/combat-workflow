@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.6 — 2026-11-14 (candidate; live verification pending)
+- Remember the last **successfully rolled** Attack-menu weapon or virtual maneuver for each Actor when the Attack macro is used again, including following combat rounds and new targets.
+- Preferences live only in the current user's browser settings (hidden, no Actor flag/Item write). Each Actor/world/user has a separate preference; explicit native weapon and sheet Bite/Kick/Punch clicks override remembered defaults.
+- Validate stored selections against current Attack options; if an owned basic maneuver disappears, fall back to its virtual equivalent. Missing custom weapons fall back to ordinary Unarmed Strike rather than stale IDs.
+- Reset difficulty, bonus dice, damage override, split attacks and firing modes to their existing defaults. Never automatically roll; cancelling or a failed native attack doesn't change the remembered action.
+- Add dedicated per-Actor persistence and API/macro-path regression with the full Node mock suite; no migration or change to completed combat/health.
+- This is a **candidate**, not a published release or confirmed live Foundry test.
+
 ## v0.3.5 — 2026-11-14 (legacy Creature sheet support, live verification pending)
 - Confirmed source compatibility issue: WoD20 `CreatureActorSheet` inherits `MortalActorSheet` (a legacy `foundry.appv1.sheets.ActorSheet`), while v0.3.4 default row insertion listened only to V2 render hooks. Catfiend is Actor type Creature, had only an owned Bite, and the page inspection found zero matching V2 Natural Weapons sections.
 - Register legacy `renderActorSheet` and `renderCreatureActorSheet` listeners and normalize Foundry's jQuery-style HTML argument before invoking the existing idempotent virtual maneuver row insertion.
