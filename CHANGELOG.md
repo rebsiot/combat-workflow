@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.4 — 2026-11-14 (candidate: native sheet fix; live test pending)
+- Fix missing virtual Bite, Kick and Punch rows on native WoD20 Combat sheets. The v0.3.3 candidate deferred insertion via microtask on Foundry v14's pending HTML; missing rows were reported live on Catfiend. Place virtual rows synchronously inside the render hook so they survive insertion into the sheet.
+- Add generic `renderApplicationV2` fallback for Creature/Spirit sheets and duplicate-safe row markers when both render hooks fire.
+- Regression test pending-HTML timing, Creature/Spirit coverage, idempotence and existing Item preservation. Full automated suite and candidate package CI.
+- No Actor/Item migrations or new data writes. User's live Catfiend confirmation pending for v0.3.4.
+
 ## v0.3.3 — 2026-11-14 (candidate — live test pending)
 - Display Bite, Kick, and Punch on all supported native WoD20 Combat sheets, using read-only virtual maneuvers only when the Actor lacks the corresponding Item.
 - Make all three available in Combat Workflow's Attack chooser for any Actor, using M20 Combat Library defaults: Bite Dex+Brawl diff 5, Str+1 B; Kick Dex+Brawl diff 7, Str+1 B; Punch Dex+Brawl diff 6, Str B.
