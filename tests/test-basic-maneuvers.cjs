@@ -117,6 +117,28 @@ assert.deepEqual(onlyGeneral.rows.map(row=>row.dataset.stlBasicManeuver),
 assert.equal(list.length,1,'no Actor embedded Item writes during either hook');
 assert.equal(warnings.length,0);
 
+// v0.3.4 live defect: CreatureActorSheet is WoD20's *legacy* ActorSheet,
+// and Foundry sends jQuery-like HTML through renderActorSheet instead of V2.
+assert.equal(typeof renderHooks.get('renderActorSheet'),'function',
+  'legacy generic ActorSheet event is registered');
+assert.equal(typeof renderHooks.get('renderCreatureActorSheet'),'function',
+  'legacy Creature-specific ActorSheet event is registered');
+const legacy=mockList();
+const jQueryWrapper={0:legacy.root,length:1,jquery:'3.7.1'};
+renderHooks.get('renderActorSheet')({actor:creature},jQueryWrapper);
+assert.deepEqual(legacy.rows.map(row=>row.dataset.stlBasicManeuver),
+  ['bite','kick','punch'],'legacy jQuery render root must receive all three defaults');
+renderHooks.get('renderCreatureActorSheet')({actor:creature},jQueryWrapper);
+assert.equal(legacy.rows.length,3,'dual legacy hooks do not duplicate virtual rows');
+// A legacy PC-type vampire with an owned Bite retains that row and gets two
+// virtual rows; those real Items must never be modified.
+const legacyVampire=mockList();
+renderHooks.get('renderActorSheet')({actor}, {0:legacyVampire.root,length:1});
+assert.deepEqual(legacyVampire.rows.map(row=>row.dataset.stlBasicManeuver),
+  ['kick','punch']);
+assert.equal(list.length,1,'neither legacy render hook creates an Actor Item');
+assert.equal(warnings.length,0);
+
 (async()=>{
   evaluate('DiceRollContainer=class {constructor(a){this.actor=a;}};');
   ctx.rolls=rolls;
