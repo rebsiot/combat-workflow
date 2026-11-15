@@ -1,4 +1,4 @@
-// WoD20 Combat Workflow 0.3.4. This module delegates all dice rolling to WoD20.
+// WoD20 Combat Workflow 0.3.5. This module delegates all dice rolling to WoD20.
 const MODULE = "stl-combat-workflow";
 const CHANNEL = `module.${MODULE}`;
 const BUTTON = "[data-stl-combat-action]";
@@ -1297,6 +1297,16 @@ Hooks.on("renderActorSheetV2", (app, root) => {
 Hooks.on("renderApplicationV2", (app, root) => {
   addSheetBasicManeuvers(app, root);
 });
+// WoD20 7.3.x still renders CreatureActorSheet (including Spirit) through
+// foundry.appv1.sheets.ActorSheet, not ActorSheetV2. Legacy render hooks pass
+// a jQuery-like wrapper instead of a bare HTMLElement. Support both while
+// sharing the same idempotent row insertion and unchanged native Item priority.
+function renderLegacyActorSheetManeuvers(app, html) {
+  const root = html?.querySelector ? html : (html?.[0] ?? html?.element?.[0] ?? html?.element);
+  if(root?.querySelector) addSheetBasicManeuvers(app, root);
+}
+Hooks.on("renderActorSheet", renderLegacyActorSheetManeuvers);
+Hooks.on("renderCreatureActorSheet", renderLegacyActorSheetManeuvers);
 
 // Intercept the native weapon launcher before its DiceRoller runs.
 // Normal physical Actors keep WoD20's original fallback if no single target
