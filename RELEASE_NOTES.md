@@ -1,4 +1,14 @@
-# WoD20 Combat Workflow v0.3.5 — Candidate (legacy Creature sheet support)
+# WoD20 Combat Workflow v0.3.6 — Candidate
+
+## Targeted Attack remembers your last attack
+
+When reopening Combat Workflow through Targeted Attack, the Actor's last **rolled** weapon or maneuver is preselected. The remembered attack remains available in later rounds and against new targets, in that user's browser. Each Actor remembers separately; native sheet weapon clicks and virtual Bite/Kick/Punch clicks always override the remembered selection. A removed custom weapon safely falls back; stored basic attacks resolve to their current real/virtual version.
+
+Roll Attack remains a deliberate click. Difficulty, dice bonuses, damage-type overrides, firing mode and multiple attacks continue to reset. The preference is stored in a hidden **client** setting, not on Actors, Items, user macros or world flags. No migration or changes to prior rolls occur. Cancelled dialogs and failed rolls never change the preference.
+
+**Test status:** automated/mock only, not tested in live Foundry v14 with WoD20. Candidate based on the verified v0.3.5 source branch. Back up the module folder and world before installing; restart and Shift+F5 afterward. Rollback restores complete v0.3.5 module code; preference is inert if you downgrade.
+
+\n---\n\n# WoD20 Combat Workflow v0.3.5 — Candidate (legacy Creature sheet support)
 
 ## Default attacks on every character
 
