@@ -1,4 +1,4 @@
-name: Combat Workflow v0.3.4 candidate checks
+name: Combat Workflow v0.3.5 candidate checks
 on:
   pull_request:
 permissions:
@@ -26,16 +26,16 @@ jobs:
           mkdir -p build/stl-combat-workflow
           cp module.json README.md CHANGELOG.md RELEASE_NOTES.md LICENSE build/stl-combat-workflow/
           cp -R scripts styles build/stl-combat-workflow/
-          ( cd build && zip -qr ../stl-combat-workflow-v0.3.4-candidate.zip stl-combat-workflow )
-          unzip -tq stl-combat-workflow-v0.3.4-candidate.zip
-          unzip -Z1 stl-combat-workflow-v0.3.4-candidate.zip | grep -qx 'stl-combat-workflow/module.json'
-          unzip -Z1 stl-combat-workflow-v0.3.4-candidate.zip | grep -qx 'stl-combat-workflow/scripts/combat-workflow.js'
-          if unzip -Z1 stl-combat-workflow-v0.3.4-candidate.zip | grep -Eq 'HANDOFF|(^|/)tests/|(^|/)\.github/'; then
+          ( cd build && zip -qr ../stl-combat-workflow-v0.3.5-candidate.zip stl-combat-workflow )
+          unzip -tq stl-combat-workflow-v0.3.5-candidate.zip
+          unzip -Z1 stl-combat-workflow-v0.3.5-candidate.zip | grep -qx 'stl-combat-workflow/module.json'
+          unzip -Z1 stl-combat-workflow-v0.3.5-candidate.zip | grep -qx 'stl-combat-workflow/scripts/combat-workflow.js'
+          if unzip -Z1 stl-combat-workflow-v0.3.5-candidate.zip | grep -Eq 'HANDOFF|(^|/)tests/|(^|/)\.github/'; then
             echo "Internal handoff or tests leaked into release ZIP"; exit 1
           fi
       - name: Retain installable candidate for review (not a release)
         uses: actions/upload-artifact@v4
         with:
-          name: stl-combat-workflow-v0.3.4-candidate
-          path: stl-combat-workflow-v0.3.4-candidate.zip
+          name: stl-combat-workflow-v0.3.5-candidate
+          path: stl-combat-workflow-v0.3.5-candidate.zip
           retention-days: 14
